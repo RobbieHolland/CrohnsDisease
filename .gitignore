@@ -2,3 +2,7 @@ copied_data/
 mricron_lx/
 venv/
 DLTK/
+example_code/
+
+# Tensorflow
+logdir/
