@@ -21,6 +21,7 @@ with tf.Session() as sess:
     summary_writer = tf.summary.FileWriter(logdir, sess.graph)
 
     image = tf.placeholder(tf.float32)
+    tf.summary.image("Image", image[np.newaxis, ..., np.newaxis])
     tf.summary.histogram("Whitened Image", image)
 
     # Collect summaries
