@@ -3,6 +3,7 @@ mricron_lx/
 venv/
 DLTK/
 example_code/
+/**/*.pyc
 
 # Tensorflow
 logdir/
