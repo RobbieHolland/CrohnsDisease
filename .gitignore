@@ -6,4 +6,4 @@ example_code/
 *.pyc
 
 # Tensorflow
-logdir/
+*logdir/

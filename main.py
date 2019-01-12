@@ -1,15 +1,31 @@
 import pydicom
 import matplotlib.pyplot as plt
-from data.parse_labels import DataParser
+import tensorflow as tf
+from data.data_handler import DataHandler
+from model.vgg import Model
 
-reader = DataParser('./data/cases/', '/vol/bitbucket/bkainz/TCIA/CT COLONOGRAPHY')
-labels = reader.read()
+# Hyperparameters
+portion_train = 0.8
+batch_size = 16
+image_width = 512
+image_height = 512
 
-# Total number of tumours
-print(sum([len(x.tumour_slices) for x in labels]))
+# Load data into memory (dataset small)
+data_handler = DataHandler('./data/cases/', '/vol/bitbucket/bkainz/TCIA/CT COLONOGRAPHY')
+features, labels = data_handler.load_dataset()
 
-# Load example image
-ds = pydicom.dcmread(labels[0].slice_path(300))
-print(ds.pixel_array.sum())
-imgplot = plt.imshow(ds.pixel_array)
-plt.show(imgplot)
+ds = tf.data.Dataset.from_tensor_slices((features, labels))
+ds = ds.shuffle(len(features))
+ds = ds.batch(batch_size)
+ds_iter = ds.make_initializable_iterator()
+next_batch = ds_iter.get_next()
+
+print('Loaded images into memory')
+
+# Initialise Model
+network = Model(image_width, image_height, batch_size)
+
+with tf.device('/gpu:0'):
+    with tf.Session() as sess:
+        sess.run(ds_iter.initializer)
+        batch = sess.run(next_batch)

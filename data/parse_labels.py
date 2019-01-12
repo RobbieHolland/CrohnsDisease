@@ -37,19 +37,19 @@ class DataParser:
     def read(self):
         records = []
         series = read_csv(self.label_path, 'series_positions', parse_path_position)
-        tumours =   [read_csv(self.label_path, '6-9', parse_abnormal_row),
+        polyps =   [read_csv(self.label_path, '6-9', parse_abnormal_row),
                     read_csv(self.label_path, '10+', parse_abnormal_row),
                     read_csv(self.label_path, 'None', lambda x: [x[0], [], []])]
 
-        for polyp_class in tumours:
+        for polyp_class in polyps:
             for record in polyp_class:
                 patient_no = record[0]
                 matching_series = [s for s in series if s[0] == patient_no]
 
                 relevant_records = []
                 for i, position in enumerate(self.relevant_positions):
-                    tumour_slices = record[i + 1]
-                    next_records = [StudyRecord(patient_no, os.path.join(self.data_path, s[1]), tumour_slices, int(s[2]), s[3])
+                    polyp_slices = record[i + 1]
+                    next_records = [StudyRecord(patient_no, os.path.join(self.data_path, s[1]), polyp_slices, int(s[2]), s[3])
                                        for s in matching_series if s[3] in position]
                     if len(next_records) == 1:
                         relevant_records += next_records
