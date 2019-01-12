@@ -50,7 +50,7 @@ class DataHandler:
         for record in self.abnormal:
             for slice in record.polyp_slices:
                 abnormal[i] = pre_process(record.load_slice_image(slice))
-                i = i + 1
+                i += 1
 
         # Load random set (size n_polyp_slices) of healthy slices
         print('Loading healthy slice images...')
