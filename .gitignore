@@ -7,3 +7,4 @@ example_code/
 
 # Tensorflow
 *logdir/
+saved_logs/*
