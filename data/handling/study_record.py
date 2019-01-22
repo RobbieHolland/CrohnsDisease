@@ -22,6 +22,6 @@ class StudyRecord:
     def csv_rows(self):
         rows = []
         patient_no = self.study_path.split('/')[1]
-        for i in range(len(self.slices)):
+        for i in range(len(self.slice_files)):
             rows.append([patient_no, self.study_path, self.volume_height, self.patient_position, self.slices[i], self.slice_files[i], self.polyp_class])
         return rows

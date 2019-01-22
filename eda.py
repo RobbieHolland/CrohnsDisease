@@ -19,7 +19,7 @@ def show_data(images, title):
         fig.add_subplot(figure_size[0], figure_size[1], i + 1)
         plt.axis('off')
         plt.imshow(image)
-        # plt.show()
+        plt.show()
 
     plt.show()
 
