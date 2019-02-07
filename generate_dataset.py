@@ -1,8 +1,8 @@
 '''
-Generates CSV of slices
+Generates TFRecords files
 '''
 
-from data.handling.index_dataset import Indexer
+from data.handling.generate_tfrecord import TFRecordGenerator
 
-indexer = Indexer('./data/cases/', '/vol/bitbucket/bkainz/TCIA/CT COLONOGRAPHY')
-indexer.index_dataset('index.csv')
+generator = TFRecordGenerator('./data/cases/', '/vol/bitbucket/rh2515/CT_Colonography', 'data/tfrecords')
+generator.generate_train_test(0.2)

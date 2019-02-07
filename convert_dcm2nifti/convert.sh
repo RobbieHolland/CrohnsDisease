@@ -10,6 +10,11 @@ do
   out_folder=${out_dir}/$(basename -- "$dcm_folder")
   echo ${out_folder}
   mkdir -p $out_folder
-  /vol/bitbucket/rh2515/dcm2niix/build/bin/dcm2niix -o "${out_folder}" -f %j "${dcm_folder}"
+  output=$(/vol/bitbucket/rh2515/dcm2niix/build/bin/dcm2niix -o "${out_folder}" -f %j "${dcm_folder}")
+
+
+  if [[ $output == *"incompatible with NIfTI format"* ]]; then
+    echo "Bad conversion: $(basename -- "$dcm_folder")"
+  fi
 
 done
