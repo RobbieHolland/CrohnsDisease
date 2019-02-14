@@ -9,7 +9,7 @@ def vgg_layer(net, out_channels, filter_dims=(3, 3), filter_strides=(1, 1),
     return net
 
 class Model:
-    def __init__(self, batch_features, batch_labels, image_width, image_height, lr, batch_size=1):
+    def __init__(self, batch_features, batch_labels, image_width, image_height, lr):
         net = tf.expand_dims(batch_features, axis=3)
 
         net = vgg_layer(net, 64, pooling=True)
@@ -22,7 +22,11 @@ class Model:
         net = vgg_layer(net, 512, pooling=True)
 
         net = tf.layers.flatten(net)
+        net = tf.layers.dense(net, 4096)
+        net = tf.layers.dense(net, 2048)
         net = tf.layers.dense(net, 2)
+
+        self.predictions = tf.argmax(tf.nn.softmax(net), axis=1)
 
         self.ground_truth = tf.cast(batch_labels, tf.float32)
         ground_truth = tf.expand_dims(self.ground_truth, 1)

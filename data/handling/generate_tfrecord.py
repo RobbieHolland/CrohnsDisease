@@ -2,7 +2,6 @@
 Generates TFRecords of the dataset
 '''
 
-import math
 import random
 import os
 import numpy as np
@@ -39,61 +38,49 @@ def pre_process(image):
 def volume_index(record, slice):
     return record.volume_height - 1 - slice
 
-
 class TFRecordGenerator:
     def __init__(self, label_path, data_path, out_path):
         self.reader = DataParser(label_path, data_path)
         self.data_path = data_path
-        self.records = self.reader.shuffle_read()
+        self.metadata = self.reader.shuffle_read()
 
-        self.print_dataset_statistics()
+        self.metadata.print_statistics()
 
-        self.train_writer = tf.python_io.TFRecordWriter(os.path.join(out_path, 'train.tfrecords'))
-        self.test_writer  = tf.python_io.TFRecordWriter(os.path.join(out_path, 'test.tfrecords'))
-
-    def print_dataset_statistics(self):
-        print(len(self.records), 'records')
-        n_slices = np.sum([len(r.slices) for r in self.records])
-        n_polyp_slices = np.sum([len(r.slices) for r in self.records if r.is_abnormal])
-        print(n_polyp_slices, 'slices with polyps')
-        print(n_slices - n_polyp_slices, 'slices without polyps')
-
-    def _split(self, train_test_split):
-        n_records = len(self.records)
-        n_test = math.floor(train_test_split * n_records)
-        test_indicies = random.sample(range(n_records), n_test)
-        test_records = [self.records[i] for i in test_indicies]
-        train_records = [r for r in self.records if r not in test_records]
-
-        return train_records, test_records
+        self.train_writer = tf.python_io.TFRecordWriter(os.path.join(out_path, 'train_all.tfrecords'))
+        self.test_writer  = tf.python_io.TFRecordWriter(os.path.join(out_path, 'test_all.tfrecords'))
 
     def _generate_tfrecords(self, records, writer):
         for record in records:
             print('Loading', record.patient_no)
             data = sitk.ReadImage(record.form_path(self.data_path))
             volume = sitk.GetArrayFromImage(data)
-
+            print(record.patient_position)
+            print(volume.shape)
             label = record.polyp_class
             print('with label', label)
 
             for slice in record.slices:
                 index = volume_index(record, slice)
-                image = np.array(volume[index])
-                image = resize(image)
-                image = pre_process(image)
+                try:
+                    image = np.array(volume[index])
+                    image = resize(image)
+                    image = pre_process(image)
 
-                feature = { 'train/label': _int64_feature(label),
-                            'train/image': _float_feature(image.ravel())}
-                example = tf.train.Example(features=tf.train.Features(feature=feature))
-                writer.write(example.SerializeToString())
+                    feature = { 'train/label': _int64_feature(label),
+                                'train/image': _float_feature(image.ravel())}
+                    example = tf.train.Example(features=tf.train.Features(feature=feature))
+                    writer.write(example.SerializeToString())
+                except Exception as e:
+                    print('Error generating record for', record.patient_no, record.patient_position)
+                    print(e)
 
         writer.close()
 
     def generate_train_test(self, train_test_split):
-        train, test = self._split(train_test_split)
+        train, test = self.metadata.split(train_test_split)
 
-        print('Creating train data')
+        print('Creating train data...')
         self._generate_tfrecords(train, self.train_writer)
 
-        print('Creating test data')
+        print('Creating test data...')
         self._generate_tfrecords(test, self.test_writer)

@@ -3,6 +3,8 @@ import os
 import random
 import pydicom
 from data.handling.study_record import StudyRecord
+from data.handling.metadata import Metadata
+random.seed(1234)
 
 # Slices are of the form 'Pos >=10mm 34/45/63/109'
 def parse_slices(slices):
@@ -33,64 +35,63 @@ def read_csv(path, file, row_parser, header=True):
             return parsed_data[1:]
         return parsed_data
 
-# For healthy slices, first allocates random locations
-# Then for all slices include neighbouring slices
-def set_slices(records, nei_len):
-    for record in records:
-        all_slices = []
-        n_healthy_slices = 2
-        if not record.is_abnormal:
-            record.slices = random.sample(range(100, record.volume_height - 100), n_healthy_slices)
-
-        for slice in record.slices:
-            all_slices += list(set([nei for nei in range(slice - nei_len, slice + nei_len + 1) if nei >= 0 and nei < record.volume_height - 1]))
-
-        record.slices = all_slices
-    return records
-
 class DataParser:
     def __init__(self, label_path, data_path):
         self.label_path = label_path
         self.data_path = data_path
         self.relevant_positions = [['FFS', 'HFS'], ['FFP', 'HFP']]
+        self.n_slices_per_healthy = 1
+        self.neighbour_distance = 2
 
     def _record_is_series(self, record):
         n_mbytes = os.path.getsize(record.form_path(self.data_path)) >> 20
         return n_mbytes > 100 and record.volume_height > 100
 
-    def shuffle_read(self):
+    def parse_records(self, class_number, polyp_records, studies):
         records = []
-        studies = read_csv(self.label_path, 'studies_positions', parse_path_position, header=False)
+        for record in polyp_records:
+            patient_no = record[0]
+            matching_studies = [s for s in studies if s[0] == patient_no]
 
+            relevant_records = []
+            for i, position in enumerate(self.relevant_positions):
+                polyp_slices = record[i + 1]
+
+                next_records = [StudyRecord(patient_no, polyp_slices, int(s[2]), s[3], class_number)
+                                   for s in matching_studies if s[3] in position]
+
+                # If there are two matching studies, use neither
+                if len(next_records) == 1:
+                    relevant_records += next_records
+            records += relevant_records
+        return records
+
+    def shuffle_read(self):
+        metadata = Metadata()
+
+        # Read metadata
+        studies = read_csv(self.label_path, 'studies_positions', parse_path_position, header=False)
         ten_plus = read_csv(self.label_path, '10+', parse_abnormal_row)
         six_to_nine = read_csv(self.label_path, '6-9', parse_abnormal_row)
-        n_abnormal = len(ten_plus) + len(six_to_nine)
         no_polyp = read_csv(self.label_path, 'None', lambda x: [x[0], [], []])
-        random.shuffle(no_polyp)
-        no_polyp_ixs = random.sample(range(len(no_polyp)), n_abnormal)
-        no_polyp = [no_polyp[i] for i in no_polyp_ixs]
 
-        polyps = [no_polyp, six_to_nine, ten_plus]
-        for class_number, polyp_class in enumerate(polyps):
-            for record in polyp_class:
-                patient_no = record[0]
-                matching_studies = [s for s in studies if s[0] == patient_no]
+        # Abnormal studies
+        polyps = [[1, six_to_nine], [2, ten_plus]]
+        for class_number, polyp_class in polyps:
+            metadata.add_records(self.parse_records(class_number, polyp_class, studies))
+        bad_positive_records = read_csv(self.label_path, 'bad_positive_conversions', lambda x: x[0])
+        metadata.filter_records(lambda r: r.patient_no not in bad_positive_records)
 
-                relevant_records = []
-                for i, position in enumerate(self.relevant_positions):
-                    polyp_slices = record[i + 1]
-
-                    next_records = [StudyRecord(patient_no, polyp_slices, int(s[2]), s[3], class_number)
-                                       for s in matching_studies if s[3] in position]
-
-                    # If there are two matching studies, use neither
-                    if len(next_records) == 1:
-                        next_records = set_slices(next_records, 2)
-                        relevant_records += next_records
-                records += relevant_records
+        # Healthy studies
+        no_polyp = random.sample(no_polyp, metadata.n_abnormal_patients())
+        metadata.add_records(self.parse_records(0, no_polyp, studies))
 
         # Filter records for series
-        series_records = [r for r in records if self._record_is_series(r)]
+        metadata.filter_records(lambda r: self._record_is_series(r))
 
-        random.shuffle(series_records)
-        return series_records[1:40]
+        # Generate all slices from centroids
+        metadata.compute_slices(self.n_slices_per_healthy, self.neighbour_distance)
+
+        random.shuffle(metadata.records)
+        # metadata.cut_dataset(40)
+        return metadata
