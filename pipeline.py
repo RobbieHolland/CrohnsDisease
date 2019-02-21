@@ -5,12 +5,12 @@ class Pipeline:
         self.train_data = train_data
         self.test_data = test_data
 
-    def create(self, image_width=256, image_height=256, batch_size=10, test_size=10):
+    def create(self, volume_shape=(5, 256, 256), batch_size=10, test_size=10):
         # Dataset pipeline
         def decode(serialized_example):
             features = tf.parse_single_example(
                 serialized_example,
-                features={'train/image': tf.FixedLenFeature([image_width, image_height], tf.float32),
+                features={'train/image': tf.FixedLenFeature(volume_shape, tf.float32),
                           'train/label': tf.FixedLenFeature([], tf.int64)})
 
             return features['train/image'], features['train/label']
@@ -18,6 +18,7 @@ class Pipeline:
         # Train pipeline
         dataset = tf.data.TFRecordDataset(self.train_data).map(decode)
         dataset = dataset.repeat(None)
+        # dataset = dataset.shuffle(batch_size, reshuffle_each_iteration=True)
         dataset = dataset.batch(batch_size)
         dataset = dataset.prefetch(1)
 

@@ -9,8 +9,8 @@ def vgg_layer(net, out_channels, filter_dims=(3, 3), filter_strides=(1, 1),
     return net
 
 class Model:
-    def __init__(self, batch_features, batch_labels, image_width, image_height, lr):
-        net = tf.expand_dims(batch_features, axis=3)
+    def __init__(self, batch_features, batch_labels, volume_dims, lr, weight_decay):
+        net = tf.transpose(batch_features, perm=[0, 2, 3, 1])
 
         net = vgg_layer(net, 64, pooling=True)
         net = vgg_layer(net, 128, pooling=True)
@@ -23,7 +23,9 @@ class Model:
 
         net = tf.layers.flatten(net)
         net = tf.layers.dense(net, 4096)
+        net = tf.nn.dropout(net, 0.5)
         net = tf.layers.dense(net, 2048)
+        net = tf.nn.dropout(net, 0.5)
         net = tf.layers.dense(net, 2)
 
         self.predictions = tf.argmax(tf.nn.softmax(net), axis=1)
@@ -36,6 +38,9 @@ class Model:
         self.summary_loss = tf.reduce_mean(cross_entropy_loss)
         tf.summary.scalar("loss", self.summary_loss)
 
-        self.train_op = tf.train.AdamOptimizer(learning_rate=lr).minimize(cross_entropy_loss)
-
+        # self.train_op = tf.train.AdamOptimizer(learning_rate=lr).minimize(cross_entropy_loss)
+        optimiser = tf.train.AdamOptimizer(learning_rate=lr)
+        l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in tf.trainable_variables()])
+        self.train_op = optimiser.minimize(cross_entropy_loss + weight_decay * l2_loss)
+        # self.train_op = extend_with_weight_decay(optimiser, weight_decay=weight_decay).minimize(cross_entropy_loss)
         self.summary = tf.summary.merge_all()

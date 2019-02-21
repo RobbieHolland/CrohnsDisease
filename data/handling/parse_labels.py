@@ -43,10 +43,6 @@ class DataParser:
         self.n_slices_per_healthy = 1
         self.neighbour_distance = 2
 
-    def _record_is_series(self, record):
-        n_mbytes = os.path.getsize(record.form_path(self.data_path)) >> 20
-        return n_mbytes > 100 and record.volume_height > 100
-
     def parse_records(self, class_number, polyp_records, studies):
         records = []
         for record in polyp_records:
@@ -57,8 +53,10 @@ class DataParser:
             for i, position in enumerate(self.relevant_positions):
                 polyp_slices = record[i + 1]
 
-                next_records = [StudyRecord(patient_no, polyp_slices, int(s[2]), s[3], class_number)
+                next_records = [StudyRecord(patient_no, polyp_slices, int(s[2]), s[3], class_number, self.neighbour_distance)
                                    for s in matching_studies if s[3] in position]
+                # Filter records for series
+                next_records = [r for r in next_records if r.is_series(self.data_path)]
 
                 # If there are two matching studies, use neither
                 if len(next_records) == 1:
@@ -82,16 +80,8 @@ class DataParser:
         bad_positive_records = read_csv(self.label_path, 'bad_positive_conversions', lambda x: x[0])
         metadata.filter_records(lambda r: r.patient_no not in bad_positive_records)
 
-        # Healthy studies
-        no_polyp = random.sample(no_polyp, metadata.n_abnormal_patients())
-        metadata.add_records(self.parse_records(0, no_polyp, studies))
-
-        # Filter records for series
-        metadata.filter_records(lambda r: self._record_is_series(r))
-
-        # Generate all slices from centroids
-        metadata.compute_slices(self.n_slices_per_healthy, self.neighbour_distance)
+        # Select healthy slices
+        metadata.process_healthy_records(self.parse_records(0, no_polyp, studies))
 
         random.shuffle(metadata.records)
-        # metadata.cut_dataset(40)
         return metadata

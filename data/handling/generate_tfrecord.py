@@ -20,13 +20,20 @@ def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 def resize(image):
+    height = image.shape[0]
     itk_image = sitk.GetImageFromArray(np.array(image))
     resample = sitk.ResampleImageFilter()
-    scale = sitk.ScaleTransform(2, (2, 2))
-    resample.SetTransform(scale)
-    resample.SetSize((256, 256))
-    itk_image = resample.Execute(itk_image)
-    scaled_image = sitk.GetArrayFromImage(itk_image)
+    scaled_image = resample.Execute(
+        itk_image,
+        (256, 256, height),
+        sitk.ScaleTransform(3, (2, 2, 1)),
+        sitk.sitkLinear,
+        itk_image.GetOrigin(),
+        itk_image.GetSpacing(),
+        itk_image.GetDirection(),
+        0,
+        itk_image.GetPixelID())
+    scaled_image = sitk.GetArrayFromImage(scaled_image)
 
     return scaled_image
 
@@ -35,34 +42,56 @@ def pre_process(image):
     image = whitening(image)
     return image
 
-def volume_index(record, slice):
-    return record.volume_height - 1 - slice
+def volume_index(volume_height, slice):
+    return volume_height - 1 - slice
+
+def tfrecord_name(set, suffix=''):
+    return set + '_' + suffix + '.tfrecords'
+
+def centroid_volume(record, centroid, whole_volume):
+    volume_height = whole_volume.shape[0]
+    bottom, top = centroid - record.neighbour_distance, centroid + record.neighbour_distance
+    vol = ()
+    for slice in range(bottom, top + 1):
+        index = min(max(0, volume_index(volume_height, slice)), volume_height)
+        vol += (whole_volume[index],)
+
+    vol = np.stack(vol)
+    print(vol.shape)
+    print(vol.size * vol.itemsize)
+    return vol
 
 class TFRecordGenerator:
     def __init__(self, label_path, data_path, out_path):
+        self.out_path = out_path
         self.reader = DataParser(label_path, data_path)
         self.data_path = data_path
         self.metadata = self.reader.shuffle_read()
 
         self.metadata.print_statistics()
 
-        self.train_writer = tf.python_io.TFRecordWriter(os.path.join(out_path, 'train_all.tfrecords'))
-        self.test_writer  = tf.python_io.TFRecordWriter(os.path.join(out_path, 'test_all.tfrecords'))
+    def _generate_tfrecords(self, metadata, writer):
+        metadata.print_statistics()
+        for record in metadata.records:
+            # For 2D task, only care about slices - for 3D task this is not required
+            if record.n_centroids() == 0:
+                continue
 
-    def _generate_tfrecords(self, records, writer):
-        for record in records:
             print('Loading', record.patient_no)
             data = sitk.ReadImage(record.form_path(self.data_path))
             volume = sitk.GetArrayFromImage(data)
-            print(record.patient_position)
-            print(volume.shape)
+            if volume.shape[0] < 50:
+                print('Skipping', record.patient_no)
+                continue
+            print(record.patient_position, volume.shape)
             label = record.polyp_class
             print('with label', label)
 
-            for slice in record.slices:
-                index = volume_index(record, slice)
+            for centroid in record.slice_centroids:
                 try:
-                    image = np.array(volume[index])
+                    # index = volume_index(record, centroid)
+                    image = centroid_volume(record, centroid, volume)
+                    # image = np.array(volume[index])
                     image = resize(image)
                     image = pre_process(image)
 
@@ -76,7 +105,9 @@ class TFRecordGenerator:
 
         writer.close()
 
-    def generate_train_test(self, train_test_split):
+    def generate_train_test(self, train_test_split, suffix):
+        self.train_writer = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name('train', suffix)))
+        self.test_writer  = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name('test', suffix)))
         train, test = self.metadata.split(train_test_split)
 
         print('Creating train data...')

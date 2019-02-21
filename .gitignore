@@ -11,3 +11,6 @@ saved_logs/*
 
 # TFRecord data
 data/tfrecords/*
+
+# Other logs
+out

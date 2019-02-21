@@ -1,9 +1,25 @@
 import random
 import math
+from functools import reduce
+
+def split_records(records, train_test_split):
+    random.shuffle(records)
+    n_test = math.floor(train_test_split * sum([r.n_centroids() for r in records]))
+
+    count, i = 0, 0
+    test_records = []
+    while (count < n_test):
+        test_records.append(records[i])
+        count += records[i].n_centroids()
+        i += 1
+
+    train_records = [r for r in records if r not in test_records]
+
+    return train_records, test_records
 
 class Metadata():
-    def __init__(self):
-        self.records = []
+    def __init__(self, records=[]):
+        self.records = records
 
     def add_records(self, records):
         self.records += records
@@ -24,15 +40,8 @@ class Metadata():
     def n_healthy_centroids(self):
         return sum([r.n_slice_centroids() for r in self.healthy_records()])
 
-    # Slice count
-    def n_abnormal_slices(self):
-        return sum([r.n_slices() for r in self.abnormal_records()])
-
-    def n_slices(self):
-        return sum([r.n_slices() for r in self.records])
-
-    def n_healthy_slices(self):
-        return self.n_slices() - self.n_abnormal_slices()
+    def centroid_histogram(self):
+        return reduce(lambda a, b: a + b, [s.centroid_slice_proportion() for s in self.abnormal_records()])
 
     # Patient count
     def n_abnormal_patients(self):
@@ -43,21 +52,26 @@ class Metadata():
 
     # Statistics
     def print_statistics(self):
+        print('Metadata statistics')
         print(len(self.records), 'records')
-        print(self.n_abnormal_slices(), 'slices with polyps')
-        print(self.n_healthy_slices(), 'slices without polyps')
+        print(self.n_abnormal_centroids(), 'centroids with polyps')
+        print(self.n_healthy_centroids(), 'centroids without polyps')
 
     def filter_records(self, filter):
         self.records = [r for r in self.records if filter(r)]
 
-    # ==== Add neighbouring slices
-    # For healthy slices, first allocates random locations
-    # Then for all slices include neighbouring slices
-    def compute_slices(self, slices_per_healthy, neighbour_distance):
+    # One slice per healthy record (for now)
+    def process_healthy_records(self, all_healthy_records):
+        histogram = self.centroid_histogram()
+        sampled_records = random.sample(all_healthy_records, self.n_abnormal_centroids())
+
+        for i, record in enumerate(sampled_records):
+            record.slice_centroids = [int(round(histogram[i] * record.volume_height))]
+        self.add_records(sampled_records)
+
+    def compute_neighbouring_slices(self, neighbour_distance):
         for record in self.records:
             all_slices = []
-            if not record.is_abnormal:
-                record.slice_centroids = random.sample(range(100, record.volume_height - 100), slices_per_healthy)
 
             for slice in record.slice_centroids:
                 all_slices += list(set([nei for nei in range(slice - neighbour_distance, slice + neighbour_distance + 1)
@@ -66,12 +80,13 @@ class Metadata():
 
     # Test train split
     def split(self, train_test_split):
-        n_test = math.floor(train_test_split * self.n_records())
-        test_indicies = random.sample(range(self.n_records()), n_test)
-        test_records = [self.records[i] for i in test_indicies]
-        train_records = [r for r in self.records if r not in test_records]
+        abnormal_train_records, abnormal_test_records = split_records(self.abnormal_records(), train_test_split)
+        healthy_train_records, healthy_test_records = split_records(self.healthy_records(), train_test_split)
 
-        return train_records, test_records
+        train, test = abnormal_train_records + healthy_train_records, abnormal_test_records + healthy_test_records
+        random.shuffle(train)
+        random.shuffle(test)
+        return Metadata(train), Metadata(test)
 
     def cut_dataset(self, n):
         self.records = self.records[1:(n + 1)]
