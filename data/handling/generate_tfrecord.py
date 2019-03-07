@@ -106,6 +106,13 @@ class TFRecordGenerator:
         writer.close()
 
     def generate_train_test(self, train_test_split, suffix):
+        train_path = os.path.join(self.out_path, tfrecord_name('train', suffix))
+        test_path = os.path.join(self.out_path, tfrecord_name('test', suffix))
+        if os.path.isfile(train_path) or os.path.isfile(test_path):
+            print('Train or test with suffix', suffix, 'already exists.')
+            print('Press Enter to proceed anyway.')
+            input()
+
         self.train_writer = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name('train', suffix)))
         self.test_writer  = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name('test', suffix)))
         train, test = self.metadata.split(train_test_split)

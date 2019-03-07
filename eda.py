@@ -1,7 +1,3 @@
-'''
-Generates TFRecords of the dataset
-'''
-
 import random
 import os
 import cv2

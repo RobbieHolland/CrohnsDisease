@@ -12,8 +12,8 @@ class Model:
     def __init__(self, batch_features, batch_labels, volume_dims, lr, weight_decay):
         net = tf.transpose(batch_features, perm=[0, 2, 3, 1])
 
-        net = vgg_layer(net, 64, pooling=True)
-        net = vgg_layer(net, 128, pooling=True)
+        net = vgg_layer(net, 256, pooling=True)
+        net = vgg_layer(net, 256, pooling=True)
         net = vgg_layer(net, 256)
         net = vgg_layer(net, 256, pooling=True)
         net = vgg_layer(net, 512)
@@ -21,11 +21,13 @@ class Model:
         net = vgg_layer(net, 512)
         net = vgg_layer(net, 512, pooling=True)
 
+        self.dropout_prob = tf.placeholder_with_default(1.0, shape=())
+
         net = tf.layers.flatten(net)
         net = tf.layers.dense(net, 4096)
-        net = tf.nn.dropout(net, 0.5)
+        net = tf.nn.dropout(net, self.dropout_prob)
         net = tf.layers.dense(net, 2048)
-        net = tf.nn.dropout(net, 0.5)
+        net = tf.nn.dropout(net, self.dropout_prob)
         net = tf.layers.dense(net, 2)
 
         self.predictions = tf.argmax(tf.nn.softmax(net), axis=1)

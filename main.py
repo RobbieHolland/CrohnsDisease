@@ -19,10 +19,11 @@ test_evaluation_period = 16
 last_accuracy = test_evaluation_period
 
 # Hyperparameters
-batch_size = 16
+batch_size = 10
 test_size = min(batch_size, len(list(tf.python_io.tf_record_iterator(test_data))))
 learning_rate = 0.00005
 weight_decay = 5e-6
+dropout_train_prob = 0.5
 
 # Dataset pipeline
 pipeline = Pipeline(train_data, test_data)
@@ -56,12 +57,14 @@ def accuracy(labels, preds):
     arg_labels = np.argmax(labels, axis=1)
     return np.sum(np.array(arg_labels) == np.array(preds)) / len(labels)
 
+# Test
 def test_accuracy(sess, batch):
     accuracies = []
     prediction_balances = []
     losses = []
     summary_te = None
 
+    # Iterate over whole test set
     try:
         while (True):
             batch_images, batch_labels = sess.run([features_te, labels_te])
@@ -114,7 +117,8 @@ with tf.device('/gpu:0'):
 
             _, loss, summary, preds = sess.run([network.train_op, network.summary_loss, network.summary, network.predictions],
                                         feed_dict={augmented_features: aug_batch_images,
-                                                   augmented_labels: aug_batch_labels})
+                                                   augmented_labels: aug_batch_labels,
+                                                   network.dropout_prob: dropout_train_prob})
 
             summary_writer_tr.add_summary(summary, int(batch))
             print(batch // test_evaluation_period, '-', batch % test_evaluation_period, ':', 'Loss', loss)
