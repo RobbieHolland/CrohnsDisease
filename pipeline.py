@@ -12,13 +12,12 @@ class Pipeline:
                 serialized_example,
                 features={'train/image': tf.FixedLenFeature(volume_shape, tf.float32),
                           'train/label': tf.FixedLenFeature([], tf.int64)})
-
             return features['train/image'], features['train/label']
 
         # Train pipeline
         dataset = tf.data.TFRecordDataset(self.train_data).map(decode)
         dataset = dataset.repeat(None)
-        # dataset = dataset.shuffle(batch_size, reshuffle_each_iteration=True)
+        dataset = dataset.shuffle(1000, reshuffle_each_iteration=True)
         dataset = dataset.batch(batch_size)
         dataset = dataset.prefetch(1)
 

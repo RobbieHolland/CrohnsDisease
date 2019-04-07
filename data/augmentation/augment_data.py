@@ -6,7 +6,7 @@ import scipy
 
 class Augmentor:
     def __init__(self):
-        self.angle_std = 4
+        self.angle_std = 10
         self.alpha, self.sigma = 6e3, 25
 
     def random_rotate(self, image):
@@ -20,7 +20,7 @@ class Augmentor:
 
     def augment(self, image):
         image = flip(image, axis=2)
-        image = self.random_rotate(image)
+        # image = self.random_rotate(image)
         image = add_gaussian_noise(image, sigma=0.005)
         image = elastic_transform(image, alpha=[self.alpha, self.alpha, self.alpha],
                                              sigma=[self.sigma ,self.sigma, self.sigma])

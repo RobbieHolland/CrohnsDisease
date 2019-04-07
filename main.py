@@ -4,9 +4,10 @@ import os
 import numpy as np
 from datetime import datetime
 
+from main_util import *
 from data.augmentation.augment_data import *
 from pipeline import *
-from model.vgg import Model
+from model.vgg import VGG
 
 # Paths
 train_data = 'data/tfrecords/train_volume_balanced.tfrecords'
@@ -14,29 +15,30 @@ test_data = 'data/tfrecords/test_volume_balanced.tfrecords'
 logdir = os.path.join('/vol/bitbucket/rh2515/CrohnsDisease/logdir', str(datetime.now()))
 
 # Parameters
-volume_shape = (5, 256, 256)
-test_evaluation_period = 16
+input_shape = (5, 256, 256)
+test_evaluation_period = 10
 last_accuracy = test_evaluation_period
 
 # Hyperparameters
-batch_size = 10
+batch_size = 64
 test_size = min(batch_size, len(list(tf.python_io.tf_record_iterator(test_data))))
-learning_rate = 0.00005
-weight_decay = 5e-6
+weight_decay = 1e-5
 dropout_train_prob = 0.5
+
+starter_learning_rate = 0.0001
+N_steps_before_decay = 250
+lr_decay_rate = 0.75
+global_step = tf.Variable(0, trainable=False)
+learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
+                                           N_steps_before_decay, lr_decay_rate, staircase=True)
+tf.summary.scalar('learning_rate', learning_rate)
 
 # Dataset pipeline
 pipeline = Pipeline(train_data, test_data)
-iterator, iterator_te = pipeline.create(volume_shape, batch_size, test_size)
-features, labels = iterator.get_next()
-features_te, labels_te = iterator_te.get_next()
+iterator, iterator_te = pipeline.create(input_shape, batch_size, test_size)
 
-# Initialise Model
-augmented_features = tf.placeholder(tf.float32, shape=(None, 5, 256, 256))
-augmented_labels = tf.placeholder(tf.float64)
-
-network = Model(augmented_features, augmented_labels, volume_shape, learning_rate, weight_decay)
-init = tf.global_variables_initializer()
+# Initialise classification network
+network = VGG(input_shape, learning_rate, weight_decay, global_step)
 
 # Initialise augmentation
 augmentor = Augmentor()
@@ -45,58 +47,11 @@ augmentor = Augmentor()
 accuracy_placeholder = tf.placeholder(tf.float32)
 accuracy_summary = tf.summary.scalar('accuracy', accuracy_placeholder)
 
-def augment_batch(features, labels):
-    aug_batch_images = augmentor.augment_batch(features)
-    aug_batch_labels = [[0, 1] if polyp > 0 else [1, 0] for polyp in labels]
-    return aug_batch_images, aug_batch_labels
-
-def prediction_class_balance(preds):
-    return np.sum(preds) / len(preds)
-
-def accuracy(labels, preds):
-    arg_labels = np.argmax(labels, axis=1)
-    return np.sum(np.array(arg_labels) == np.array(preds)) / len(labels)
-
-# Test
-def test_accuracy(sess, batch):
-    accuracies = []
-    prediction_balances = []
-    losses = []
-    summary_te = None
-
-    # Iterate over whole test set
-    try:
-        while (True):
-            batch_images, batch_labels = sess.run([features_te, labels_te])
-            aug_batch_images, aug_batch_labels = augment_batch(batch_images, batch_labels)
-
-            loss_te, summary_te, preds = sess.run([network.summary_loss, network.summary, network.predictions],
-                                            feed_dict={augmented_features: aug_batch_images,
-                                                       augmented_labels: aug_batch_labels})
-            accuracies.append(accuracy(aug_batch_labels, preds))
-            losses.append(loss_te)
-            prediction_balances.append(prediction_class_balance(preds))
-
-    except tf.errors.OutOfRangeError:
-        summary_writer_te.add_summary(summary_te, int(batch))
-
-        average_accuracy = np.average(accuracies)
-        a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: average_accuracy})
-        accuracy_writer_te.add_summary(a_s, int(batch))
-
-        sess.run(iterator_te.initializer)
-        print()
-        print('Test Loss:          ', np.average(losses))
-        print('Test accuracy:      ', average_accuracy)
-        print('Prediction balance: ', np.average(prediction_balances))
-        print()
-
-
 # Train
 with tf.device('/gpu:0'):
     with tf.Session() as sess:
         # Initialise variables
-        sess.run(init)
+        tf.global_variables_initializer().run()
         sess.run(iterator.initializer)
         sess.run(iterator_te.initializer)
 
@@ -109,25 +64,32 @@ with tf.device('/gpu:0'):
         batch = 0
         train_accuracies = []
         while (True):
+            # Evaluate performance on test set at intervals
             if batch % test_evaluation_period == 0:
-                test_accuracy(sess, batch)
+                summary_te, average_accuracy = test_accuracy(sess, network, batch, iterator_te, augmentor)
+                summary_writer_te.add_summary(summary_te, int(batch))
+                a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: average_accuracy})
+                accuracy_writer_te.add_summary(a_s, int(batch))
 
-            batch_images, batch_labels = sess.run([features, labels])
-            aug_batch_images, aug_batch_labels = augment_batch(batch_images, batch_labels)
+            # Train the network
+            batch_images, batch_labels = sess.run(iterator.get_next())
+            aug_batch_images, aug_batch_labels = augment_batch(augmentor, batch_images, batch_labels)
 
             _, loss, summary, preds = sess.run([network.train_op, network.summary_loss, network.summary, network.predictions],
-                                        feed_dict={augmented_features: aug_batch_images,
-                                                   augmented_labels: aug_batch_labels,
+                                        feed_dict={network.batch_features: aug_batch_images,
+                                                   network.batch_labels: aug_batch_labels,
                                                    network.dropout_prob: dropout_train_prob})
 
+            # Summaries and statistics
             summary_writer_tr.add_summary(summary, int(batch))
-            print(batch // test_evaluation_period, '-', batch % test_evaluation_period, ':', 'Loss', loss)
 
             train_accuracies.append(accuracy(aug_batch_labels, preds))
             running_accuracy = np.average(train_accuracies[-last_accuracy:])
 
             a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: running_accuracy})
             accuracy_writer_tr.add_summary(a_s, int(batch))
-            print('Train accuracy:', running_accuracy)
+
+            print('Train epoch %d.%d' % (batch // test_evaluation_period, batch % test_evaluation_period))
+            print_statistics(loss, running_accuracy, prediction_class_balance(preds))
 
             batch += 1
