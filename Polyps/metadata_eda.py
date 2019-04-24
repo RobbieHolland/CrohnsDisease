@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from dltk.io.augmentation import *
 from dltk.io.preprocessing import *
 
-from data.handling.parse_labels import DataParser
+from data.Polyps.handling.parse_labels import DataParser
 
 class MetadataEDA:
     def __init__(self, label_path, data_path, out_path):
@@ -24,5 +24,5 @@ class MetadataEDA:
         plt.ylabel('Centroid height distribution')
         plt.show()
 
-eda = MetadataEDA('./data/cases/', '/vol/bitbucket/rh2515/CT_Colonography', 'data/tfrecords')
+eda = MetadataEDA('./data/Polyps/cases/', '/vol/bitbucket/rh2515/CT_Colonography', 'data/tfrecords')
 eda.centroid_histogram()

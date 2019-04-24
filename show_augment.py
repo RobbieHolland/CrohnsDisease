@@ -2,13 +2,16 @@ import tensorflow as tf
 from scripts.show import *
 from pipeline import Pipeline
 from data.augmentation.augment_data import *
+from main_util import generate_decode_function
 
-train_data = 'data/tfrecords/train_volume.tfrecords'
-test_data = 'data/tfrecords/train_volume.tfrecords'
+train_data = '/vol/bitbucket/rh2515/Crohns/tfrecords/axial_t2_only_train.tfrecords'
+test_data = '/vol/bitbucket/rh2515/Crohns/tfrecords/axial_t2_only_test.tfrecords'
+feature_shape=(64, 128, 256)
 
 # Dataset pipeline
-pipeline = Pipeline(train_data, test_data)
-iterator, _ = pipeline.create()
+decode_record = generate_decode_function(feature_shape, 'axial_t2')
+pipeline = Pipeline(decode_record, train_data, test_data)
+iterator, _ = pipeline.create(volume_shape=feature_shape, batch_size=2, test_size=2)
 features, labels = iterator.get_next()
 
 # Augmentation
