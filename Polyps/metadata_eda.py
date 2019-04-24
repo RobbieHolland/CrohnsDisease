@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from dltk.io.augmentation import *
 from dltk.io.preprocessing import *
 
-from data.Polyps.handling.parse_labels import DataParser
+from data.handling.parse_labels import DataParser
 
 class MetadataEDA:
     def __init__(self, label_path, data_path, out_path):
