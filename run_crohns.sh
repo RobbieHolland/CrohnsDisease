@@ -3,4 +3,5 @@ Crohns_MRI \
 /vol/bitbucket/rh2515/CrohnsDisease/Crohns/tfrecords/axial_t2_only_train.tfrecords \
 /vol/bitbucket/rh2515/CrohnsDisease/Crohns/tfrecords/axial_t2_only_test.tfrecords \
 64,128,256 \
--bS=6
+-bS=12 \
+-lD=logdir_crohns

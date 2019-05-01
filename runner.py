@@ -7,10 +7,9 @@ from datetime import datetime
 from main_util import *
 from augmentation.augment_data import *
 from pipeline import *
-from model.vgg import VGG
 
 class Runner:
-    def __init__(self, args):
+    def __init__(self, args, model):
         # Paths
         self.logdir = os.path.join('/vol/bitbucket/rh2515/CrohnsDisease/',
                                     args.logdir, str(datetime.now()))
@@ -24,6 +23,7 @@ class Runner:
         self.test_evaluation_period = 10
 
         # Network parameters
+        self.model = model
         self.feature_shape = args.feature_shape
         self.batch_size = args.batch_size
         self.test_size = min(self.batch_size, len(list(tf.python_io.tf_record_iterator(self.test_data))))
@@ -45,7 +45,7 @@ class Runner:
         iterator_next, iterator_te_next = iterator.get_next(), iterator_te.get_next()
 
         # Initialise classification network
-        network = VGG(self.feature_shape, self.learning_rate, self.weight_decay, self.global_step)
+        network = self.model(self.feature_shape, self.learning_rate, self.weight_decay, self.global_step)
 
         # Initialise augmentation
         augmentor = Augmentor()
@@ -89,6 +89,7 @@ class Runner:
                                                            network.dropout_prob: self.dropout_train_prob})
 
                     # Summaries and statistics
+                    print('-------- Train epoch %d.%d --------' % (batch // self.test_evaluation_period, batch % self.test_evaluation_period))
                     summary_writer_tr.add_summary(summary, int(batch))
 
                     train_accuracies.append(accuracy(aug_batch_labels, preds))
@@ -97,7 +98,6 @@ class Runner:
                     a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: running_accuracy})
                     accuracy_writer_tr.add_summary(a_s, int(batch))
 
-                    print('Train epoch %d.%d' % (batch // self.test_evaluation_period, batch % self.test_evaluation_period))
                     print_statistics(loss, running_accuracy, prediction_class_balance(preds))
 
                     batch += 1

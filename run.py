@@ -1,7 +1,9 @@
 import argparse
 import tensorflow as tf
-from runner import Runner
 
+from runner import Runner
+from model.vgg import VGG
+from model.resnet import ResNet3D
 from main_util import generate_decode_function
 
 def parseArguments():
@@ -40,9 +42,11 @@ if __name__ == '__main__':
     task = args.__dict__['crohns_or_polyps']
     if task == 'Polyps_CT':
         decode_record = generate_decode_function(args.feature_shape, 'image')
+        model = VGG
     elif task == 'Crohns_MRI':
         decode_record = generate_decode_function(args.feature_shape, 'axial_t2')
+        model = ResNet3D
     args.__dict__['decode_record'] = decode_record
 
-    runner = Runner(args)
+    runner = Runner(args, model)
     runner.train()

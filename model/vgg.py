@@ -7,7 +7,7 @@ class VGG(Classifier):
         net = tf.layers.conv2d(net, out_channels, filter_dims, strides=filter_strides, padding=padding, data_format="channels_first")
         net = tf.layers.batch_normalization(net, axis=1)
         if pooling:
-            net = tf.layers.max_pooling2d(net, 2, 2)
+            net = tf.layers.max_pooling2d(net, 2, 2, data_format='channels_first')
         net = act_f(net)
         return net
 
@@ -24,16 +24,24 @@ class VGG(Classifier):
 
         self.dropout_prob = tf.placeholder_with_default(1.0, shape=())
 
-        net = tf.transpose(self.batch_features, perm=[0, 2, 3, 1])
+        net = self.batch_features
 
         net = self.vgg_layer(net, 256, pooling=True)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 256, pooling=True)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 256)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 256, pooling=True)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 512)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 512, pooling=True)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 512)
+        print('--------------', net.shape)
         net = self.vgg_layer(net, 512, pooling=True)
+        print('--------------', net.shape)
 
         net = tf.layers.flatten(net)
         net = self.dense_layer(net, 4096)

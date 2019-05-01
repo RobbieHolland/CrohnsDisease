@@ -21,7 +21,11 @@ def prediction_class_balance(preds):
 
 def accuracy(labels, preds):
     arg_labels = np.argmax(labels, axis=1)
-    return np.sum(np.array(arg_labels) == np.array(preds)) / len(labels)
+    l_string = ''.join(str(x) for x in arg_labels)
+    p_string = ''.join(str(x) for x in preds)
+    print(f'Label:      {l_string}')
+    print(f'Prediction: {p_string}')
+    return np.sum(np.array(arg_labels) == np.array(preds)) / len(arg_labels)
 
 def print_statistics(loss, accuracy, prediction_balance):
     print('Loss:               ', loss)
@@ -36,6 +40,8 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, augmentor
     summary_te = None
 
     # Iterate over whole test set
+    print()
+    print('Test statistics')
     while (True):
         try:
             batch_images, batch_labels = sess.run(iterator_te_next)
@@ -49,11 +55,9 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, augmentor
             prediction_balances.append(prediction_class_balance(preds))
 
         except tf.errors.OutOfRangeError:
-            average_accuracy = np.average(accuracies)
 
             sess.run(iterator_te.initializer)
-            print()
-            print('Test statistics')
+            average_accuracy = np.average(accuracies)
             print_statistics(np.average(losses), average_accuracy, np.average(prediction_balances))
             print()
 
