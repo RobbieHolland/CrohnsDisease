@@ -1,0 +1,15 @@
+Previous experiments had outdated code (sadly due to accidental overwrite) - test data was also being augmented
+Running again with slightly bigger resnet: [8, 16, 32, 32, 32]
+Dropout used on final layer
+Added translation into augmentation
+
+Hypothesis:
+No elastic = overfit
+Too much elastic = useful information lost, poor test and train
+Just right = useful information kept, good test and train?
+
+Augmentation: flip, rotation, translation, gaussian noise, elastic deformation => strong!
+
+If network overfits, then bigger network is cause since augmentation is strong. Also could be because anatomy outside colon included in volume (i.e. not yet cropped).
+
+If network undefits, either network is not big enough or augmentation is too strong. In this case, try a bigger network first since augmentation is strong. Try bigger networks until hit sweetspot or it overfits.

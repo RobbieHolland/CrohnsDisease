@@ -9,6 +9,7 @@ example_code/
 *logdir/
 */saved_logs/
 events.*
+*log*
 
 # TFRecord data
 *.tfrecords
@@ -17,6 +18,7 @@ events.*
 out
 
 # Images
+images/
 *.png
 *.jpg
 

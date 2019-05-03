@@ -20,7 +20,7 @@ class Runner:
         self.decode_record = args.decode_record
 
         # General parameters
-        self.test_evaluation_period = 10
+        self.test_evaluation_period = 2
 
         # Network parameters
         self.model = model
@@ -81,18 +81,19 @@ class Runner:
 
                     # Train the network
                     batch_images, batch_labels = sess.run(iterator_next)
-                    aug_batch_images, aug_batch_labels = augment_batch(augmentor, batch_images, batch_labels)
+                    aug_batch_images = augmentor.augment_batch(batch_images)
+                    parsed_batch_labels = parse_labels(batch_labels)
 
                     _, loss, summary, preds = sess.run([network.train_op, network.summary_loss, network.summary, network.predictions],
                                                 feed_dict={network.batch_features: aug_batch_images,
-                                                           network.batch_labels: aug_batch_labels,
+                                                           network.batch_labels: parsed_batch_labels,
                                                            network.dropout_prob: self.dropout_train_prob})
 
                     # Summaries and statistics
                     print('-------- Train epoch %d.%d --------' % (batch // self.test_evaluation_period, batch % self.test_evaluation_period))
                     summary_writer_tr.add_summary(summary, int(batch))
 
-                    train_accuracies.append(accuracy(aug_batch_labels, preds))
+                    train_accuracies.append(accuracy(parsed_batch_labels, preds))
                     running_accuracy = np.average(train_accuracies[-self.test_evaluation_period:])
 
                     a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: running_accuracy})

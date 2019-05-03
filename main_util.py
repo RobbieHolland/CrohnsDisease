@@ -11,10 +11,8 @@ def generate_decode_function(feature_shape, feature_name):
         return features[feature_key], features['train/label']
     return decode_record
 
-def augment_batch(augmentor, features, labels):
-    aug_batch_images = augmentor.augment_batch(features)
-    aug_batch_labels = [[0, 1] if polyp > 0 else [1, 0] for polyp in labels]
-    return aug_batch_images, aug_batch_labels
+def parse_labels(labels):
+    return [[0, 1] if level > 0 else [1, 0] for level in labels]
 
 def prediction_class_balance(preds):
     return np.sum(preds) / len(preds)
@@ -45,12 +43,12 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, augmentor
     while (True):
         try:
             batch_images, batch_labels = sess.run(iterator_te_next)
-            aug_batch_images, aug_batch_labels = augment_batch(augmentor, batch_images, batch_labels)
+            parsed_batch_labels = parse_labels(batch_labels)
 
             loss_te, summary_te, preds = sess.run([network.summary_loss, network.summary, network.predictions],
-                                            feed_dict={network.batch_features: aug_batch_images,
-                                                       network.batch_labels: aug_batch_labels})
-            accuracies.append(accuracy(aug_batch_labels, preds))
+                                            feed_dict={network.batch_features: batch_images,
+                                                       network.batch_labels: parsed_batch_labels})
+            accuracies.append(accuracy(parsed_batch_labels, preds))
             losses.append(loss_te)
             prediction_balances.append(prediction_class_balance(preds))
 
