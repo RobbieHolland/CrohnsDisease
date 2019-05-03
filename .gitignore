@@ -24,3 +24,6 @@ images/
 
 # Notebooks
 .ipynb_checkpoints/
+
+# Other
+scripts/multi.py 

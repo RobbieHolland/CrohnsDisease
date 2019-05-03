@@ -11,7 +11,7 @@ feature_shape=(64, 128, 256)
 # Dataset pipeline
 decode_record = generate_decode_function(feature_shape, 'axial_t2')
 pipeline = Pipeline(decode_record, train_data, test_data)
-iterator, _ = pipeline.create(volume_shape=feature_shape, batch_size=10, test_size=10)
+iterator, _ = pipeline.create(volume_shape=feature_shape, batch_size=48, test_size=48)
 features, labels = iterator.get_next()
 
 # Augmentation
