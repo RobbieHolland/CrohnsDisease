@@ -12,9 +12,19 @@ angle_std = 4
 alpha, sigma = 5e3, 35
 mx_disp_prop = 0.04
 
+def random_displacement(image, lb, up):
+    return [round(np.random.uniform(-mx_disp_prop, mx_disp_prop) * d) for d in image.shape]
+
+################## Not yet tested
+def random_crop(image, desired_size):
+    dim = image.shape
+    ds = random_displacement(image, -mx_disp_prop, mx_disp_prop)
+    ds_max = random_displacement(image, mx_disp_prop, mx_disp_prop)
+    return image[ds[0]:dim[0] - ds_max[0]][ds[1]:dim[1] - ds_max[1]][ds[1]:dim[1] - ds_max[1]]
+
 def random_translate(image):
-    x, y, z = [round(np.random.uniform(-mx_disp_prop, mx_disp_prop) * d) for d in image.shape]
-    return scipy.ndimage.shift(image, [x, y, z], mode='nearest')
+    displacements = random_displacement(image, -mx_disp_prop, mx_disp_prop)
+    return scipy.ndimage.shift(image, displacements, mode='nearest')
 
 def random_rotate(image):
     angle = np.random.normal(loc=0, scale=angle_std)

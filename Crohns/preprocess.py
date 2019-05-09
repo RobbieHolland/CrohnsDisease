@@ -22,7 +22,8 @@ class Preprocessor:
         reference_physical_size = np.zeros(self.dimension)
         for patient in patients:
             img = patient.axial_image
-            reference_physical_size[:] = [(sz-1)*spc if sz*spc>mx  else mx for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
+            # reference_physical_size[:] = [(sz-1)*spc if sz*spc>mx  else mx for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
+            reference_physical_size[:] = [(sz-1)*spc for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
 
         # Create the reference image with a zero origin, identity direction cosine matrix and dimension
         reference_origin = np.zeros(self.dimension)

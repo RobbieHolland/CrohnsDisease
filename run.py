@@ -19,6 +19,7 @@ def parseArguments():
     # Optional arguments
     parser.add_argument("-bS", "--batch_size", help="Batch size", type=int, default=64)
     parser.add_argument("-lD", "--logdir", help="Directory to log Tensorboard to", default='logdir')
+    parser.add_argument("-nB", "--num_batches", help="Number of total training batches", default=None)
 
     # Print version
     parser.add_argument("--version", action="version", version='%(prog)s - Version 1.0')

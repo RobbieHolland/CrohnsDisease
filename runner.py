@@ -21,6 +21,7 @@ class Runner:
 
         # General parameters
         self.test_evaluation_period = 2
+        self.num_batches = int(args.num_batches)
 
         # Network parameters
         self.model = model
@@ -69,9 +70,8 @@ class Runner:
                 accuracy_writer_tr = tf.summary.FileWriter(self.logdir + 'train_accuracy', sess.graph)
                 accuracy_writer_te = tf.summary.FileWriter(self.logdir + 'test_accuracy', sess.graph)
 
-                batch = 0
                 train_accuracies = []
-                while (True):
+                for batch in range(self.num_batches):
                     # Evaluate performance on test set at intervals
                     if batch % self.test_evaluation_period == 0:
                         summary_te, average_accuracy = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, augmentor)
@@ -100,5 +100,3 @@ class Runner:
                     accuracy_writer_tr.add_summary(a_s, int(batch))
 
                     print_statistics(loss, running_accuracy, prediction_class_balance(preds))
-
-                    batch += 1

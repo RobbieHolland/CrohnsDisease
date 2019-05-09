@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+import SimpleITK as sitk
 
 class SeriesTypes(Enum):
     AXIAL = 'Axial T2'
@@ -25,14 +26,23 @@ class Patient:
     def set_images(self, axial_image=None):
         self.axial_image = axial_image
 
+    def load_image_data(self):
+        axial_path = self.axial
+        if os.path.isfile(axial_path):
+            self.set_images(sitk.ReadImage(axial_path))
+
     def __str__(self):
         return f'{self.get_id()}: {self.axial}, {self.coronal}, {self.axial_postcon}'
 
 class Metadata:
     def form_path(self, patient, series_type):
-        path = os.path.join(self.data_path, patient.group, f'{patient.get_id()} {series_type}{self.data_extension}')
+        folder = patient.group
+        if self.dataset_tag:
+            folder += self.dataset_tag
+        path = os.path.join(self.data_path, folder, f'{patient.get_id()} {series_type}{self.dataset_tag}{self.data_extension}')
         if os.path.isfile(path):
             return path
+        return -1
 
     def file_list(self, patients):
         for patient in patients:
@@ -42,12 +52,11 @@ class Metadata:
             patient.set_paths(axial, coronal, axial_postcon)
         return patients
 
-    def __init__(self, data_path):
+    def __init__(self, data_path, abnormal_cases, healthy_cases, dataset_tag=''):
         print('Forming metadata')
         self.data_path = data_path
         self.data_extension = '.nii'
-        abnormal_cases = list(range(30))
-        healthy_cases = list(range(30))
+        self.dataset_tag = dataset_tag
 
         abnormal_patients = [Patient('A', i + 1) for i in abnormal_cases]
         healthy_patients = [Patient('I', i + 1) for i in healthy_cases]
