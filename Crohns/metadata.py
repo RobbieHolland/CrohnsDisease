@@ -1,4 +1,6 @@
 import os
+import pandas as pd
+import numpy as np
 from enum import Enum
 import SimpleITK as sitk
 
@@ -26,6 +28,9 @@ class Patient:
     def set_images(self, axial_image=None):
         self.axial_image = axial_image
 
+    def set_ileum_coordinates(self, coords):
+        self.ileum = coords
+
     def load_image_data(self):
         axial_path = self.axial
         if os.path.isfile(axial_path):
@@ -52,7 +57,12 @@ class Metadata:
             patient.set_paths(axial, coronal, axial_postcon)
         return patients
 
-    def __init__(self, data_path, abnormal_cases, healthy_cases, dataset_tag=''):
+    def label_set(self, patients, labels):
+        for patient in patients:
+            patient.set_ileum_coordinates(np.array(labels.loc[labels['Case ID'] == patient.get_id()][['coronal', 'sagittal', 'axial']])[0])
+        return patients
+
+    def __init__(self, data_path, label_path, abnormal_cases, healthy_cases, dataset_tag=''):
         print('Forming metadata')
         self.data_path = data_path
         self.data_extension = '.nii'
@@ -62,3 +72,6 @@ class Metadata:
         healthy_patients = [Patient('I', i + 1) for i in healthy_cases]
 
         self.patients = self.file_list(abnormal_patients + healthy_patients)
+
+        ileum_labels = pd.read_csv(os.path.join(label_path, 'terminal_ileum'), delimiter='\t', header=0)
+        self.patients = self.label_set(self.patients, ileum_labels)

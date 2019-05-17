@@ -25,7 +25,7 @@ class ResNet3D(Classifier):
         def projection_shortcut(net, out_channels, filter_strides, padding='SAME'):
             return Conv3D(net, out_channels, 1, strides=filter_strides, padding=padding, data_format="channels_first")
 
-        filter_sizes = [8, 16, 32, 16, 8]
+        filter_sizes = [128, 256, 512, 512, 512]
         for filters in filter_sizes:
             net = self.block(net, filters, projection_shortcut)
             print(net.shape)

@@ -10,7 +10,7 @@ class Pipeline:
         # Train pipeline
         dataset = tf.data.TFRecordDataset(self.train_data).map(self.decode)
         dataset = dataset.repeat(None)
-        dataset = dataset.shuffle(1000, reshuffle_each_iteration=True)
+        dataset = dataset.shuffle(batch_size, reshuffle_each_iteration=True)
         dataset = dataset.batch(batch_size)
         dataset = dataset.prefetch(1)
 

@@ -2,6 +2,7 @@ import os
 import tensorflow as tf
 import SimpleITK as sitk
 import random
+from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 
@@ -26,10 +27,25 @@ class TFRecordGenerator:
         self.out_path = out_path
         self.suffix = suffix
 
+        if not os.path.exists(self.out_path):
+            os.makedirs(self.out_path)
+
+        self.write_log(f'Dataset created: {str(datetime.now())}')
+
+    def write_log(self, line):
+        with open(os.path.join(self.out_path, 'METADATA'), 'a') as levels:
+            levels.write(f'{line}\n')
+
     # Features: List of Sitk images
     # Labels: Corresponding list of labels
     def _generate_tfrecords(self, patients, set='train', fold=''):
         writer = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name(f'{set}_{fold}', self.suffix)))
+
+        abnormal = sorted([p.index for p in patients if p.get_label() == 1])
+        healthy = sorted([p.index for p in patients if p.get_label() == 0])
+        self.write_log(f'{set} set, fold {fold}:')
+        self.write_log(f'A - {abnormal}')
+        self.write_log(f'I - {healthy}')
 
         for i, patient in enumerate(patients):
             try:
@@ -58,7 +74,7 @@ class TFRecordGenerator:
             print('Creating test data...')
             self._generate_tfrecords(patients_test, set='test', fold=f'fold{i}')
 
-    def generate_train_test(self, test_proportion, X, y):
+    def generate_train_test(self, test_proportion, patients):
         train_path = os.path.join(self.out_path, tfrecord_name('train', self.suffix))
         test_path = os.path.join(self.out_path, tfrecord_name('test', self.suffix))
         if os.path.isfile(train_path) or os.path.isfile(test_path):
@@ -66,10 +82,11 @@ class TFRecordGenerator:
             print('Press Enter to continue and overwrite.')
             input()
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_proportion, stratify=y, random_state=0)
+        y = [patient.get_label() for patient in patients]
+        patients_train, patients_test, _, _ = train_test_split(patients, y, test_size=test_proportion, stratify=y, random_state=0)
 
         print('Creating train data...')
-        self._generate_tfrecords(X_train, y_train, set='train')
+        self._generate_tfrecords(patients_train, set='train')
 
         print('Creating test data...')
-        self._generate_tfrecords(X_test, y_test, set='test')
+        self._generate_tfrecords(patients_test, set='test')

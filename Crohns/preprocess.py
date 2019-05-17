@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
-def show_data(data, sl):
+def show_data(data, sl, name):
     fig = plt.figure(figsize=(18, 18))
     fig.set_size_inches(15, 10)
     columns = 8
@@ -14,23 +14,23 @@ def show_data(data, sl):
         nda = nda.astype(np.float32)
 
         plt.imshow(nda[sl], cmap='gray')
-    plt.show()
+    plt.savefig(f'images/{name}.png')
 
 class Preprocessor:
-    def generate_reference_volume(self, patients):
+    def generate_reference_volume(self, patient):
         # Physical image size corresponds to the largest physical size in the training set, or any other arbitrary size.
         reference_physical_size = np.zeros(self.dimension)
-        for patient in patients:
-            img = patient.axial_image
-            # reference_physical_size[:] = [(sz-1)*spc if sz*spc>mx  else mx for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
-            reference_physical_size[:] = [(sz-1)*spc for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
+
+        img = patient.axial_image
+        # reference_physical_size[:] = [(sz-1)*spc if sz*spc>mx  else mx for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
+        reference_physical_size[:] = [(sz-1)*spc for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
 
         # Create the reference image with a zero origin, identity direction cosine matrix and dimension
         reference_origin = np.zeros(self.dimension)
         reference_direction = np.identity(self.dimension).flatten()
         reference_spacing = [ phys_sz/(sz-1) for sz,phys_sz in zip(self.constant_volume_size, reference_physical_size) ]
 
-        reference_image = sitk.Image(self.constant_volume_size, patients[0].axial_image.GetPixelIDValue())
+        reference_image = sitk.Image(self.constant_volume_size, patient.axial_image.GetPixelIDValue())
         reference_image.SetOrigin(reference_origin)
         reference_image.SetSpacing(reference_spacing)
         reference_image.SetDirection(reference_direction)
@@ -43,27 +43,49 @@ class Preprocessor:
 
         return reference_image
 
+    def crop_to_ileum(self, patient, physical_crop_size=np.array([60, 60, 60])):
+        image = patient.axial_image
+        box_size = np.array([pcsz / vsz for vsz,pcsz in zip(image.GetSpacing(), physical_crop_size)])
+        print(box_size)
+        lb = np.array(patient.ileum - box_size/2).astype(int)
+        ub = (lb + box_size).astype(int)
+
+        arr = sitk.GetArrayFromImage(image)
+        arr = arr[lb[2]:ub[2], lb[0]:ub[0], lb[1]:ub[1]]
+        img = sitk.GetImageFromArray(arr)
+        img.SetOrigin(image.GetOrigin())
+        img.SetSpacing(image.GetSpacing())
+        img.SetDirection(image.GetDirection())
+        return img
+
     def __init__(self, constant_volume_size=[256, 128, 64]):
         self.constant_volume_size = constant_volume_size
 
-    def process(self, patients):
+    def process(self, patients, ileum_crop=False):
         print('Preprocessing...')
         self.dimension = patients[0].axial_image.GetDimension()
-        reference_volume = self.generate_reference_volume(patients)
-        reference_center = np.array(reference_volume.TransformContinuousIndexToPhysicalPoint(np.array(reference_volume.GetSize())/2.0))
 
         # Crop
-        print('Cropping volumes')
-        for patient in patients:
-            print(f'Cropping {patient.get_id()} \r', end='')
-            patient.set_images(axial_image=self.threshold_based_crop(patient.axial_image))
-        show_data([p.axial_image for p in patients], 30)
+        # print('Cropping volumes')
+        # for patient in patients:
+        #     print(f'Cropping {patient.get_id()} \r', end='')
+        #     patient.set_images(axial_image=self.threshold_based_crop(patient.axial_image))
+        # show_data([p.axial_image for p in patients], 30)
+
+        # Ileum crop
+        if ileum_crop:
+            for patient in reversed(patients):
+                patient.set_images(self.crop_to_ileum(patient))
+        show_data([p.axial_image for p in patients], 10, 'ileum_crop')
 
         # Resample
         print(f'Resampling volumes to {self.constant_volume_size}')
         for patient in patients:
+            reference_volume = self.generate_reference_volume(patient)
+            reference_center = np.array(reference_volume.TransformContinuousIndexToPhysicalPoint(np.array(reference_volume.GetSize())/2.0))
+
             patient.set_images(axial_image=self.resample(patient, reference_volume, reference_center))
-        show_data([p.axial_image for p in patients], 30)
+        show_data([p.axial_image for p in patients], 10, 'resample')
 
         return patients
 
@@ -86,7 +108,8 @@ class Preprocessor:
         # Using the linear interpolator as these are intensity images
         return sitk.Resample(img, reference_volume, centered_transform, sitk.sitkLinear, 0.0)
 
-    def threshold_based_crop(self, image):
+    def threshold_based_crop(self, patient):
+        image = patient.axial_image
         inside_value = 20
         outside_value = 255
         label = 1
@@ -102,5 +125,4 @@ class Preprocessor:
         overlay = sitk.LabelOverlay(image, seg_explicit_thresholds)
         label_shape_filter.Execute( seg_explicit_thresholds )
         bounding_box = label_shape_filter.GetBoundingBox(label)
-
         return sitk.RegionOfInterest(image, bounding_box[int(len(bounding_box)/2):], bounding_box[0:int(len(bounding_box)/2)])

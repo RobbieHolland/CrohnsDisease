@@ -1,4 +1,5 @@
 from dltk.io.augmentation import *
+from dltk.io.preprocessing import *
 import numpy as np
 import cv2
 import scipy
@@ -6,21 +7,25 @@ import random
 import math
 import multiprocessing as mp
 from multiprocessing import Pool
+import functools
 # from dltk.io.preprocessing import *
 
-angle_std = 4
-alpha, sigma = 5e3, 35
+angle_std = 3
+alpha, sigma = 7e3, 25
 mx_disp_prop = 0.04
 
 def random_displacement(image, lb, up):
     return [round(np.random.uniform(-mx_disp_prop, mx_disp_prop) * d) for d in image.shape]
 
 ################## Not yet tested
-def random_crop(image, desired_size):
-    dim = image.shape
-    ds = random_displacement(image, -mx_disp_prop, mx_disp_prop)
-    ds_max = random_displacement(image, mx_disp_prop, mx_disp_prop)
-    return image[ds[0]:dim[0] - ds_max[0]][ds[1]:dim[1] - ds_max[1]][ds[1]:dim[1] - ds_max[1]]
+def crop(image, desired_size, mode='center'):
+    diff = image.shape - np.array(desired_size)
+    if mode == 'random':
+        ds = [np.random.randint(d) for d in diff]
+    elif mode == 'center':
+        ds = [int(round(d / 2)) for d in diff]
+
+    return image[ds[0]:-(diff[0]-ds[0]), ds[1]:-(diff[1]-ds[1]), ds[2]:-(diff[2]-ds[2])]
 
 def random_translate(image):
     displacements = random_displacement(image, -mx_disp_prop, mx_disp_prop)
@@ -30,22 +35,40 @@ def random_rotate(image):
     angle = np.random.normal(loc=0, scale=angle_std)
     return scipy.ndimage.rotate(image, angle, axes=(1, 2), reshape=False, order=5, mode='nearest')
 
-def augment(image):
+def augment(image, out_dims=None):
     image = flip(image, axis=2)
     image = random_rotate(image)
-    image = random_translate(image)
+    image = crop(image, out_dims, mode='random')
     image = add_gaussian_noise(image, sigma=0.005)
-    image = elastic_transform(image, alpha=[alpha, alpha, alpha],
-                                         sigma=[sigma ,sigma, sigma])
+    image = elastic_transform(image, alpha=[1, alpha, alpha],
+                                         sigma=[1 ,sigma, sigma])
+    image = whitening(image)
+    return image
+
+# Process results in the same output shape as augment, and the same standardisation
+def process(image, out_dims=None):
+    image = crop(image, out_dims, mode='center')
+    image = whitening(image)
     return image
 
 class Augmentor:
-    def __init__(self):
+    def __init__(self, out_dims):
         self.angle_std = 4
         self.alpha, self.sigma = 5e3, 35
         self.mx_disp_prop = 0.04
+        self.mappable_augment = functools.partial(augment, out_dims=out_dims)
+        self.mappable_process = functools.partial(process, out_dims=out_dims)
+
+    def __call__(self, image):
+        return augment(image, self.out_dims)
+
+    def paralellise_f(self, images, f):
+        with Pool(processes=mp.cpu_count()) as pool:
+            print(f'Processing {len(images)} images \r', end='')
+            return pool.map(f, images)
 
     def augment_batch(self, images):
-        with Pool(processes=mp.cpu_count()) as pool:
-            print(f'Augmenting {len(images)} images')
-            return pool.map(augment, images)
+        return self.paralellise_f(images, self.mappable_augment)
+
+    def process_test_set(self, images):
+        return self.paralellise_f(images, self.mappable_process)
