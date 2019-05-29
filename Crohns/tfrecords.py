@@ -41,8 +41,8 @@ class TFRecordGenerator:
     def _generate_tfrecords(self, patients, set='train', fold=''):
         writer = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name(f'{set}_{fold}', self.suffix)))
 
-        abnormal = sorted([p.index for p in patients if p.get_label() == 1])
-        healthy = sorted([p.index for p in patients if p.get_label() == 0])
+        abnormal = [p.index for p in patients if p.group == 'A']
+        healthy = [p.index for p in patients if p.group == 'I']
         self.write_log(f'{set} set, fold {fold}:')
         self.write_log(f'A - {abnormal}')
         self.write_log(f'I - {healthy}')
@@ -50,7 +50,7 @@ class TFRecordGenerator:
         for i, patient in enumerate(patients):
             try:
                 image_array = sitk.GetArrayFromImage(patient.axial_image)
-                feature = { 'train/label': _int64_feature(patient.get_label()),
+                feature = { 'train/label': _int64_feature(patient.severity),
                             'train/axial_t2': _float_feature(image_array.ravel()),
                             'data/index': _int64_feature(patient.index)}
                 example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -63,7 +63,7 @@ class TFRecordGenerator:
 
     def generate_cross_folds(self, k, patients):
         random.shuffle(patients)
-        y = [patient.get_label() for patient in patients]
+        y = [patient.group for patient in patients]
         skf = StratifiedKFold(n_splits=k)
         for i, (train, test) in enumerate(skf.split(patients, y)):
             patients_train = get(patients, train)
@@ -82,7 +82,7 @@ class TFRecordGenerator:
             print('Press Enter to continue and overwrite.')
             input()
 
-        y = [patient.get_label() for patient in patients]
+        y = [patient.group for patient in patients]
         patients_train, patients_test, _, _ = train_test_split(patients, y, test_size=test_proportion, stratify=y, random_state=0)
 
         print('Creating train data...')

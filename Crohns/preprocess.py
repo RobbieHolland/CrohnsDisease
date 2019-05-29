@@ -43,10 +43,9 @@ class Preprocessor:
 
         return reference_image
 
-    def crop_to_ileum(self, patient, physical_crop_size=np.array([60, 60, 60])):
+    def crop_to_ileum(self, patient, physical_crop_size=np.array([70, 70, 110])):
         image = patient.axial_image
         box_size = np.array([pcsz / vsz for vsz,pcsz in zip(image.GetSpacing(), physical_crop_size)])
-        print(box_size)
         lb = np.array(patient.ileum - box_size/2).astype(int)
         ub = (lb + box_size).astype(int)
 
@@ -56,6 +55,7 @@ class Preprocessor:
         img.SetOrigin(image.GetOrigin())
         img.SetSpacing(image.GetSpacing())
         img.SetDirection(image.GetDirection())
+        print(img.GetSize())
         return img
 
     def __init__(self, constant_volume_size=[256, 128, 64]):
@@ -74,9 +74,10 @@ class Preprocessor:
 
         # Ileum crop
         if ileum_crop:
-            for patient in reversed(patients):
+            for patient in patients:
                 patient.set_images(self.crop_to_ileum(patient))
-        show_data([p.axial_image for p in patients], 10, 'ileum_crop')
+        show_data([p.axial_image for p in patients], 13, 'cropped')
+        [sitk.WriteImage(patients[i].axial_image, f'images/patient_{i}.nii', True) for i in range(3)]
 
         # Resample
         print(f'Resampling volumes to {self.constant_volume_size}')
@@ -85,7 +86,7 @@ class Preprocessor:
             reference_center = np.array(reference_volume.TransformContinuousIndexToPhysicalPoint(np.array(reference_volume.GetSize())/2.0))
 
             patient.set_images(axial_image=self.resample(patient, reference_volume, reference_center))
-        show_data([p.axial_image for p in patients], 10, 'resample')
+        show_data([p.axial_image for p in patients], 13, 'resample')
 
         return patients
 

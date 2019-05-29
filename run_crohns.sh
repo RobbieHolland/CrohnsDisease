@@ -1,7 +1,7 @@
 FOLDS=$1
 
 BASE="/vol/gpudata/rh2515"
-RECORDS="MRI_Crohns/tfrecords/cropped_k4/axial_t2_only_cropped"
+RECORDS="MRI_Crohns/tfrecords/ti_n80_k4/axial_t2_only_cropped"
 TIMESTAMP=`date +%Y-%m-%d_%H:%M:%S`
 
 if [ $# -eq 0 ]
@@ -18,20 +18,19 @@ if [ $# -eq 0 ]
     -nB=250
 
   else
-    echo "Running k-fold cross validation"
+    echo "Running ${#@}-fold cross validation"
 
-    for fold in $(seq 0 $(($FOLDS - 1)))
+    for fold in ${@}
     do
       python3 run.py \
       Crohns_MRI \
       ${BASE}/${RECORDS}_train_fold${fold}.tfrecords \
       ${BASE}/${RECORDS}_test_fold${fold}.tfrecords \
-      -record_shape 60,132,300 \
-      -feature_shape 48,112,256 \
+      -record_shape 84,84,26 \
+      -feature_shape 80,80,24 \
       -f=${fold} \
-      -bS=24 \
-      -lD=log_cropped/${TIMESTAMP}/ \
-      -nB=300
-
+      -bS=48 \
+      -lD=log_ti/${TIMESTAMP}/ \
+      -nB=800
     done
 fi

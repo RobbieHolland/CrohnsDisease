@@ -15,6 +15,9 @@ def generate_decode_function(feature_shape, feature_name):
         return features[feature_key], features['train/label']#, features['data/index']
     return decode_record
 
+def binarise_labels(labels):
+    return [int(label > 0) for label in labels]
+
 def parse_labels(labels):
     return [[0, 1] if level > 0 else [1, 0] for level in labels]
 
@@ -29,13 +32,15 @@ def parse_test_features(features, feature_shape):
 def prediction_class_balance(preds):
     return np.sum(preds) / len(preds)
 
-def accuracy(labels, preds):
-    arg_labels = np.argmax(labels, axis=1)
-    l_string = ''.join(str(x) for x in arg_labels)
-    p_string = ''.join(str(x) for x in preds)
-    print(f'Label:      {l_string}')
-    print(f'Prediction: {p_string}')
-    return np.sum(np.array(arg_labels) == np.array(preds)) / len(arg_labels)
+def accuracy(true_labels, binary_preds):
+    tl_string = ''.join(str(x) for x in true_labels)
+    binary_labels = binarise_labels(true_labels)
+    bl_string = ''.join(str(x) for x in binary_labels)
+    p_string = ''.join(str(x) for x in binary_preds)
+    print(f'True Label:        {tl_string}')
+    print(f'Binary Label:      {bl_string}')
+    print(f'Binary Prediction: {p_string}')
+    return np.sum(np.array(binary_labels) == np.array(binary_preds)) / len(binary_labels)
 
 def print_statistics(loss, accuracy, prediction_balance):
     print('Loss:               ', loss)
@@ -44,7 +49,7 @@ def print_statistics(loss, accuracy, prediction_balance):
 
 # Test
 def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, feature_shape):
-    accuracies, all_preds, losses = [], [], []
+    accuracies, all_labels, all_preds, losses = [], [], [], []
     summary_te = None
 
     # Iterate over whole test set
@@ -53,20 +58,21 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, feature_s
     while (True):
         try:
             batch_images, batch_labels = sess.run(iterator_te_next)
-            parsed_batch_labels, parsed_batch_features = parse_labels(batch_labels), parse_test_features(batch_images, feature_shape)
+            binary_labels = binarise_labels(batch_labels)
+            parsed_batch_features = parse_test_features(batch_images, feature_shape)
 
             loss_te, summary_te, preds = sess.run([network.summary_loss, network.summary, network.predictions],
                                             feed_dict={network.batch_features: parsed_batch_features,
-                                                       network.batch_labels: parsed_batch_labels})
-            accuracies.append(accuracy(parsed_batch_labels, preds))
+                                                       network.batch_labels: parse_labels(binary_labels)})
             losses.append(loss_te)
             all_preds += preds.tolist()
+            all_labels += batch_labels.tolist()
 
         except tf.errors.OutOfRangeError:
 
             sess.run(iterator_te.initializer)
-            average_accuracy = np.average(accuracies)
-            print_statistics(np.average(losses), average_accuracy, np.average(prediction_class_balance(all_preds)))
+            overall_accuracy = accuracy(all_labels, all_preds)
+            print_statistics(np.average(losses), overall_accuracy, np.average(prediction_class_balance(all_preds)))
             print()
 
-            return summary_te, average_accuracy, all_preds
+            return summary_te, overall_accuracy, all_preds, binarise_labels(all_labels)

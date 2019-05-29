@@ -17,13 +17,13 @@ class Patient:
     def get_id(self):
         return self.group + str(self.index)
 
-    def get_label(self):
-        return int(self.group == 'A')
-
     def set_paths(self, axial, coronal, axial_postcon):
         self.axial = axial
         self.coronal = coronal
         self.axial_postcon = axial_postcon
+
+    def set_severity(self, severity):
+        self.severity = severity
 
     def set_images(self, axial_image=None):
         self.axial_image = axial_image
@@ -59,7 +59,9 @@ class Metadata:
 
     def label_set(self, patients, labels):
         for patient in patients:
-            patient.set_ileum_coordinates(np.array(labels.loc[labels['Case ID'] == patient.get_id()][['coronal', 'sagittal', 'axial']])[0])
+            patient_labels = labels.loc[labels['Case ID'] == patient.get_id()]
+            patient.set_severity(np.array(patient_labels['Terminal ileal Inflammation level'])[0])
+            patient.set_ileum_coordinates(np.array(patient_labels[['coronal', 'sagittal', 'axial']])[0])
         return patients
 
     def __init__(self, data_path, label_path, abnormal_cases, healthy_cases, dataset_tag=''):

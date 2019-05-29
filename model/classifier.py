@@ -21,7 +21,7 @@ class Classifier:
         loss = cross_entropy_loss + self.weight_decay * l2_loss
 
         optimiser = tf.train.AdamOptimizer(learning_rate=self.lr)
-        self.train_op = optimiser.minimize(loss, global_step=self.global_step)
+        self.train_op = optimiser.minimize(loss, global_step=self.global_step, colocate_gradients_with_ops=True)
 
         self.summary_loss = tf.reduce_mean(loss)
         tf.summary.scalar("loss", self.summary_loss)

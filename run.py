@@ -6,6 +6,9 @@ from model.vgg import VGG
 from model.resnet import ResNet3D
 from main_util import generate_decode_function
 
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
