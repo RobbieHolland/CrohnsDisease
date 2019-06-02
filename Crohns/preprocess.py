@@ -16,6 +16,9 @@ def show_data(data, sl, name):
         plt.imshow(nda[sl], cmap='gray')
     plt.savefig(f'images/{name}.png')
 
+def image_physical_center(image):
+    return np.array(image.TransformContinuousIndexToPhysicalPoint(np.array(image.GetSize())/2.0))
+
 class Preprocessor:
     def generate_reference_volume(self, patient):
         # Physical image size corresponds to the largest physical size in the training set, or any other arbitrary size.
@@ -43,18 +46,18 @@ class Preprocessor:
 
         return reference_image
 
-    def crop_box_about_center(self, image, center, physical_crop_size):
+    def crop_box_about_center(self, image, pixel_center, physical_crop_size):
         box_size = np.array([pcsz / vsz for vsz,pcsz in zip(image.GetSpacing(), physical_crop_size)])
-        lb = np.array(center - box_size/2).astype(int)
+        lb = np.array(pixel_center - box_size/2).astype(int)
         ub = (lb + box_size).astype(int)
 
         arr = sitk.GetArrayFromImage(image)
-        arr = arr[lb[2]:ub[2], lb[0]:ub[0], lb[1]:ub[1]]
+        arr = arr[lb[2]:ub[2], lb[1]:ub[1], lb[0]:ub[0]]
         img = sitk.GetImageFromArray(arr)
         img.SetOrigin(image.GetOrigin())
         img.SetSpacing(image.GetSpacing())
         img.SetDirection(image.GetDirection())
-        print(img.GetSize())
+        print('cropped', img.GetSize())
         return img
 
     def __init__(self, constant_volume_size=[256, 128, 64]):
@@ -77,12 +80,19 @@ class Preprocessor:
         if ileum_crop:
             for patient in patients:
                 patient.set_images(self.crop_box_about_center(patient.axial_image, patient.ileum, np.array([80, 80, 112])))
-        elif region_grow:
+        elif region_grow_crop:
             for patient in patients:
                 patient.set_images(self.region_grow_crop(patient))
             if statistical_region_crop:
+                # sag, cor, ax
+                normalised_ilea_mean = np.array([-0.195568, -0.1737442, -0.1135473])
+                normalised_ilea_box_size = np.array([0.2525025, 0.307483, 0.4804149]) * 1.2
+
                 for patient in patients:
-                    patient.set_images(self.crop_box_about_center(patient.axial_image, ))
+                    ilea_mean = image_physical_center(patient.axial_image) + normalised_ilea_mean * patient.axial_image.GetSize()
+                    ilea_box_size = normalised_ilea_box_size * patient.axial_image.GetSize() * patient.axial_image.GetSpacing()
+                    pixel_ilea_mean = patient.axial_image.TransformPhysicalPointToIndex(ilea_mean)
+                    patient.set_images(self.crop_box_about_center(patient.axial_image, pixel_ilea_mean, ilea_box_size))
 
         show_data([p.axial_image for p in patients], 13, 'cropped')
         [sitk.WriteImage(patients[i].axial_image, f'images/patient_{i}.nii', True) for i in range(3)]
@@ -144,6 +154,8 @@ class Preprocessor:
         str_ileum_prop = [str(x) for x in ileum_prop]
         str_ileum_prop = ('\t').join(str_ileum_prop)
         print(cropped.GetSize())
+
+        # Metrics for ilea distribution
         print(f'{patient.get_id()}\t{patient.group}\t{patient.severity}\t{str_ileum_prop}')
         # print(f'{patient.get_id()}\t{(np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size).join('\t')}')
         # print(patient.ileum, cropped.TransformPhysicalPointToIndex(physical_ileum_coords))

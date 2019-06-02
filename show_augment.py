@@ -4,10 +4,10 @@ from pipeline import Pipeline
 from augmentation.augment_data import *
 from main_util import *
 
-train_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/ti_n100_k4_large/axial_t2_only_cropped_train_fold3.tfrecords'
-test_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/ti_n100_k4_large/axial_t2_only_cropped_test_fold3.tfrecords'
-record_shape=(30,96,96)
-feature_shape=(24,80,80)
+train_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped_train_fold3.tfrecords'
+test_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped_test_fold3.tfrecords'
+record_shape=(42,116,140)
+feature_shape=(32,88,112)
 
 # Dataset pipeline
 decode_record = generate_decode_function(record_shape, 'axial_t2')
