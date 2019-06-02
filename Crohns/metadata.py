@@ -44,9 +44,11 @@ class Metadata:
         folder = patient.group
         if self.dataset_tag:
             folder += self.dataset_tag
-        path = os.path.join(self.data_path, folder, f'{patient.get_id()} {series_type}{self.dataset_tag}{self.data_extension}')
-        if os.path.isfile(path):
-            return path
+        path = os.path.join(self.data_path, folder, f'{patient.get_id()} {series_type}{self.dataset_tag}')
+        for ext in self.data_extensions:
+            full_path = f'{path}.{ext}'
+            if os.path.isfile(full_path):
+                return full_path
         return -1
 
     def file_list(self, patients):
@@ -67,7 +69,7 @@ class Metadata:
     def __init__(self, data_path, label_path, abnormal_cases, healthy_cases, dataset_tag=''):
         print('Forming metadata')
         self.data_path = data_path
-        self.data_extension = '.nii'
+        self.data_extensions = ['nii', 'nii.gz']
         self.dataset_tag = dataset_tag
 
         abnormal_patients = [Patient('A', i + 1) for i in abnormal_cases]

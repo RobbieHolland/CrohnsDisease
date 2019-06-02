@@ -46,6 +46,7 @@ class TFRecordGenerator:
         self.write_log(f'{set} set, fold {fold}:')
         self.write_log(f'A - {abnormal}')
         self.write_log(f'I - {healthy}')
+        self.write_log([p.severity for p in patients])
 
         for i, patient in enumerate(patients):
             try:
@@ -63,6 +64,9 @@ class TFRecordGenerator:
 
     def generate_cross_folds(self, k, patients):
         random.shuffle(patients)
+
+        self.write_log(f'Volume size: {sitk.GetArrayFromImage(patients[0].axial_image).shape}')
+
         y = [patient.group for patient in patients]
         skf = StratifiedKFold(n_splits=k)
         for i, (train, test) in enumerate(skf.split(patients, y)):

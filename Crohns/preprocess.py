@@ -43,10 +43,9 @@ class Preprocessor:
 
         return reference_image
 
-    def crop_to_ileum(self, patient, physical_crop_size=np.array([70, 70, 110])):
-        image = patient.axial_image
+    def crop_box_about_center(self, image, center, physical_crop_size):
         box_size = np.array([pcsz / vsz for vsz,pcsz in zip(image.GetSpacing(), physical_crop_size)])
-        lb = np.array(patient.ileum - box_size/2).astype(int)
+        lb = np.array(center - box_size/2).astype(int)
         ub = (lb + box_size).astype(int)
 
         arr = sitk.GetArrayFromImage(image)
@@ -61,7 +60,7 @@ class Preprocessor:
     def __init__(self, constant_volume_size=[256, 128, 64]):
         self.constant_volume_size = constant_volume_size
 
-    def process(self, patients, ileum_crop=False):
+    def process(self, patients, ileum_crop=False, region_grow_crop=False, statistical_region_crop=False):
         print('Preprocessing...')
         self.dimension = patients[0].axial_image.GetDimension()
 
@@ -73,9 +72,18 @@ class Preprocessor:
         # show_data([p.axial_image for p in patients], 30)
 
         # Ileum crop
+        proportion_center = np.array([])
+        proportion_box_size = np.array([])
         if ileum_crop:
             for patient in patients:
-                patient.set_images(self.crop_to_ileum(patient))
+                patient.set_images(self.crop_box_about_center(patient.axial_image, patient.ileum, np.array([80, 80, 112])))
+        elif region_grow:
+            for patient in patients:
+                patient.set_images(self.region_grow_crop(patient))
+            if statistical_region_crop:
+                for patient in patients:
+                    patient.set_images(self.crop_box_about_center(patient.axial_image, ))
+
         show_data([p.axial_image for p in patients], 13, 'cropped')
         [sitk.WriteImage(patients[i].axial_image, f'images/patient_{i}.nii', True) for i in range(3)]
 
@@ -109,8 +117,10 @@ class Preprocessor:
         # Using the linear interpolator as these are intensity images
         return sitk.Resample(img, reference_volume, centered_transform, sitk.sitkLinear, 0.0)
 
-    def threshold_based_crop(self, patient):
+    def region_grow_crop(self, patient):
         image = patient.axial_image
+        ileum = [patient.ileum[1], patient.ileum[0], patient.ileum[2]]
+        physical_ileum_coords = image.TransformContinuousIndexToPhysicalPoint(np.array(ileum) * 1.0)
         inside_value = 20
         outside_value = 255
         label = 1
@@ -126,4 +136,15 @@ class Preprocessor:
         overlay = sitk.LabelOverlay(image, seg_explicit_thresholds)
         label_shape_filter.Execute( seg_explicit_thresholds )
         bounding_box = label_shape_filter.GetBoundingBox(label)
-        return sitk.RegionOfInterest(image, bounding_box[int(len(bounding_box)/2):], bounding_box[0:int(len(bounding_box)/2)])
+        cropped = sitk.RegionOfInterest(image, bounding_box[int(len(bounding_box)/2):], bounding_box[0:int(len(bounding_box)/2)])
+        crop_center = np.array(cropped.TransformContinuousIndexToPhysicalPoint(np.array(cropped.GetSize())/2.0))
+        crop_physical_quadrant_size = np.array([spc * sz for spc,sz in zip(cropped.GetSpacing(), cropped.GetSize())]) / 2.0
+
+        ileum_prop = (np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size
+        str_ileum_prop = [str(x) for x in ileum_prop]
+        str_ileum_prop = ('\t').join(str_ileum_prop)
+        print(cropped.GetSize())
+        print(f'{patient.get_id()}\t{patient.group}\t{patient.severity}\t{str_ileum_prop}')
+        # print(f'{patient.get_id()}\t{(np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size).join('\t')}')
+        # print(patient.ileum, cropped.TransformPhysicalPointToIndex(physical_ileum_coords))
+        return cropped

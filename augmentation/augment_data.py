@@ -8,24 +8,26 @@ import math
 import multiprocessing as mp
 from multiprocessing import Pool
 import functools
+import random
 # from dltk.io.preprocessing import *
 
-angle_std = 3
-alpha, sigma = 7e3, 25
+angle_std = 4
+alpha, sigma = 6e3, 50
 mx_disp_prop = 0.04
 
 def random_displacement(image, lb, up):
     return [round(np.random.uniform(-mx_disp_prop, mx_disp_prop) * d) for d in image.shape]
 
-################## Not yet tested
 def crop(image, desired_size, mode='center'):
     diff = image.shape - np.array(desired_size)
     if mode == 'random':
-        ds = [np.random.randint(d) for d in diff]
+        ds = [random.randint(0, d) for d in diff]
     elif mode == 'center':
         ds = [int(round(d / 2)) for d in diff]
 
-    return image[ds[0]:-(diff[0]-ds[0]), ds[1]:-(diff[1]-ds[1]), ds[2]:-(diff[2]-ds[2])]
+    res = [diff_i - ds_i for diff_i, ds_i in zip(diff, ds)]
+    res = [-r if r != 0 else None for r in res]
+    return image[ds[0]:res[0], ds[1]:res[1], ds[2]:res[2]]
 
 def random_translate(image):
     displacements = random_displacement(image, -mx_disp_prop, mx_disp_prop)
@@ -36,12 +38,14 @@ def random_rotate(image):
     return scipy.ndimage.rotate(image, angle, axes=(1, 2), reshape=False, order=5, mode='nearest')
 
 def augment(image, out_dims=None):
+    # Initial crop to remove border artefacts
+    image = crop(image, (image.shape[0] - 4, image.shape[1] - 8, image.shape[2] - 8), mode='center')
     image = flip(image, axis=2)
     image = random_rotate(image)
     image = crop(image, out_dims, mode='random')
     image = add_gaussian_noise(image, sigma=0.005)
-    image = elastic_transform(image, alpha=[1, alpha, alpha],
-                                         sigma=[1 ,sigma, sigma])
+    # image = elastic_transform(image, alpha=[1, alpha, alpha],
+    #                                      sigma=[1 ,sigma, sigma])
     image = whitening(image)
     return image
 

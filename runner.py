@@ -36,12 +36,17 @@ class Runner:
         # Hyperparameters
         self.weight_decay = 0# 1e-4
         self.dropout_train_prob = 0.5
-        starter_learning_rate = 0.000005
-        N_steps_before_decay = 1000 // self.batch_size
-        lr_decay_rate = 1.0
+        starter_learning_rate = 5e-6
         self.global_step = tf.Variable(0, trainable=False)
-        self.learning_rate = tf.train.exponential_decay(starter_learning_rate, self.global_step,
-                                                        N_steps_before_decay, lr_decay_rate, staircase=True)
+        # N_steps_before_decay = 1# 8000 // self.batch_size
+        # lr_decay_rate = 0.99616971251
+        # self.learning_rate = tf.train.exponential_decay(starter_learning_rate, self.global_step,
+        #                                                 N_steps_before_decay, lr_decay_rate, staircase=True)
+
+        # boundaries = [200, 300]
+        # values = [starter_learning_rate, 0.5 * starter_learning_rate, 0.1 * starter_learning_rate]
+        # self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
+        self.learning_rate = starter_learning_rate
 
         # Logging
         self.best_accuracy = {'batch': None, 'accuracy': 0, 'preds': None}
@@ -74,7 +79,6 @@ class Runner:
         augmentor = Augmentor(self.feature_shape)
 
         # Summaries
-        tf.summary.scalar('learning_rate', self.learning_rate)
         accuracy_placeholder = tf.placeholder(tf.float32)
         accuracy_summary = tf.summary.scalar('accuracy', accuracy_placeholder)
 
@@ -89,10 +93,8 @@ class Runner:
             sess.run(iterator_te.initializer)
 
             # Summary writers
-            summary_writer_tr = self.create_summary('train_loss', sess.graph)
-            summary_writer_te = self.create_summary('test_loss', sess.graph)
-            accuracy_writer_tr = self.create_summary('train_accuracy', sess.graph)
-            accuracy_writer_te = self.create_summary('test_accuracy', sess.graph)
+            summary_writer_tr = self.create_summary('train', sess.graph)
+            summary_writer_te = self.create_summary('test', sess.graph)
 
             train_accuracies = []
             for batch in range(self.num_batches):
@@ -101,13 +103,12 @@ class Runner:
                     summary_te, average_accuracy, preds, all_labels = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, self.feature_shape)
                     summary_writer_te.add_summary(summary_te, int(batch))
                     a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: average_accuracy})
-                    accuracy_writer_te.add_summary(a_s, int(batch))
+                    summary_writer_te.add_summary(a_s, int(batch))
                     self.update_stats(batch, average_accuracy, preds, all_labels)
 
                 # Train the network
                 batch_images, batch_labels = sess.run(iterator_next)
                 aug_batch_images = augmentor.augment_batch(batch_images)
-
                 binary_labels = binarise_labels(batch_labels)
 
                 _, loss, summary, binary_preds = sess.run([network.train_op, network.summary_loss, network.summary, network.predictions],
@@ -123,7 +124,7 @@ class Runner:
                 running_accuracy = np.average(train_accuracies[-self.test_evaluation_period:])
 
                 a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: running_accuracy})
-                accuracy_writer_tr.add_summary(a_s, int(batch))
+                summary_writer_tr.add_summary(a_s, int(batch))
 
                 print_statistics(loss, running_accuracy, prediction_class_balance(binary_preds))
 

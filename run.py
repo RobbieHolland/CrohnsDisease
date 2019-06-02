@@ -2,7 +2,7 @@ import argparse
 import tensorflow as tf
 
 from runner import Runner
-from model.vgg import VGG
+from model.vgg_16 import VGG16
 from model.resnet import ResNet3D
 from main_util import generate_decode_function
 

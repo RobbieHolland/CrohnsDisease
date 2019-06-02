@@ -24,5 +24,6 @@ class Classifier:
         self.train_op = optimiser.minimize(loss, global_step=self.global_step, colocate_gradients_with_ops=True)
 
         self.summary_loss = tf.reduce_mean(loss)
+        tf.summary.scalar("learning_rate", self.lr)
         tf.summary.scalar("loss", self.summary_loss)
         self.summary = tf.summary.merge_all()

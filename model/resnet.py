@@ -63,17 +63,6 @@ class ResNet3D(Classifier):
         print(net.shape)
         return net
 
-    def build_long_net(self, input):
-        filters = [(32, 2), (32, 1), (32, 1), (64, 2), (64, 1), (64, 1), (128, 2), (128, 1), (128, 1), (256, 2), (256, 1), (256, 1)]
-        net = self.build_ti_net(input, filters)
-        print(net.shape)
-        net = tf.layers.average_pooling3d(net, net.shape[2:], 1, padding='valid', data_format='channels_first')
-        print(net.shape)
-        net = tf.layers.flatten(net)
-        net = self.dense_layer(net, 2, act_f=None, dropout=True)
-        print(net.shape)
-        return net
-
     def __init__(self, input_shape, lr, weight_decay, global_step):
         super().__init__(input_shape, lr, weight_decay, global_step)
 
