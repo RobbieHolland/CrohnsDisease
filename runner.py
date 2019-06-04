@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import numpy as np
 from datetime import datetime
-
+from sklearn.metrics import f1_score
 from main_util import *
 from augmentation.augment_data import *
 from pipeline import *
@@ -49,22 +49,30 @@ class Runner:
         self.learning_rate = starter_learning_rate
 
         # Logging
-        self.best_accuracy = {'batch': None, 'accuracy': 0, 'preds': None}
+        self.best = {'batch': None, 'report': None, 'preds': None, 'loss': float("inf")}
 
     def write_log(self, line):
         with open(os.path.join(self.logdir, 'LOG'), 'a') as levels:
             levels.write(f'{line}\n')
 
-    def update_stats(self, batch, test_accuracy, preds, labels):
-        if test_accuracy > self.best_accuracy['accuracy']:
-            self.best_accuracy['batch'] = batch
-            self.best_accuracy['accuracy'] = test_accuracy
-            self.best_accuracy['preds'] = preds
-            self.best_accuracy['labels'] = labels
+    def update_stats(self, batch, loss, preds, labels):
+        if loss < self.best['loss']:
+            self.best['batch'] = batch
+            self.best['loss'] = loss
+            self.best['preds'] = preds
+            self.best['labels'] = labels
+            self.best['report'] = report(labels, preds)
 
     def create_summary(self, name, graph):
         path = os.path.join(self.logdir, f'fold{self.fold}', name)
         return tf.summary.FileWriter(path, graph)
+
+    def log_metrics(self, sess, batch, writer, accuracy, f1):
+        a_s = sess.run(self.accuracy_summary, feed_dict={self.accuracy_placeholder: accuracy})
+        writer.add_summary(a_s, int(batch))
+
+        f1_s = sess.run(self.f1_summary, feed_dict={self.f1_placeholder: f1})
+        writer.add_summary(f1_s, int(batch))
 
     def train(self):
         # Dataset pipeline
@@ -79,8 +87,10 @@ class Runner:
         augmentor = Augmentor(self.feature_shape)
 
         # Summaries
-        accuracy_placeholder = tf.placeholder(tf.float32)
-        accuracy_summary = tf.summary.scalar('accuracy', accuracy_placeholder)
+        self.accuracy_placeholder = tf.placeholder(tf.float32)
+        self.accuracy_summary = tf.summary.scalar('accuracy', self.accuracy_placeholder)
+        self.f1_placeholder = tf.placeholder(tf.float32)
+        self.f1_summary = tf.summary.scalar('f1', self.f1_placeholder)
 
         # Train
         config = tf.ConfigProto()
@@ -100,11 +110,10 @@ class Runner:
             for batch in range(self.num_batches):
                 # Evaluate performance on test set at intervals
                 if batch % self.test_evaluation_period == 0:
-                    summary_te, average_accuracy, preds, all_labels = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, self.feature_shape)
+                    summary_te, average_accuracy, overall_loss, preds, all_labels = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, self.feature_shape)
                     summary_writer_te.add_summary(summary_te, int(batch))
-                    a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: average_accuracy})
-                    summary_writer_te.add_summary(a_s, int(batch))
-                    self.update_stats(batch, average_accuracy, preds, all_labels)
+                    self.update_stats(batch, overall_loss, preds, all_labels)
+                    self.log_metrics(sess, batch, summary_writer_te, average_accuracy, f1_score(all_labels, preds))
 
                 # Train the network
                 batch_images, batch_labels = sess.run(iterator_next)
@@ -123,13 +132,13 @@ class Runner:
                 train_accuracies.append(accuracy(batch_labels, binary_preds))
                 running_accuracy = np.average(train_accuracies[-self.test_evaluation_period:])
 
-                a_s = sess.run(accuracy_summary, feed_dict={accuracy_placeholder: running_accuracy})
-                summary_writer_tr.add_summary(a_s, int(batch))
+                self.log_metrics(sess, batch, summary_writer_tr, running_accuracy, f1_score(binary_labels, binary_preds))
 
-                print_statistics(loss, running_accuracy, prediction_class_balance(binary_preds))
+                print_statistics(loss, binary_labels, binary_preds)
 
             print('Training finished!')
-            self.write_log(f'Best accuracy (epoch {self.best_accuracy["batch"]}): {round(self.best_accuracy["accuracy"], 3)}%')
-            self.write_log(f'with predictions: {self.best_accuracy["preds"]}')
-            self.write_log(f'of labels:        {self.best_accuracy["labels"]}')
+            self.write_log(f'Best loss (epoch {self.best["batch"]}): {round(self.best["loss"], 3)}')
+            self.write_log(f'with predictions: {self.best["preds"]}')
+            self.write_log(f'of labels:        {self.best["labels"]}')
+            self.write_log(self.best["report"])
             self.write_log('')

@@ -1,3 +1,4 @@
+from sklearn.metrics import classification_report
 from dltk.io.preprocessing import *
 
 import tensorflow as tf
@@ -42,10 +43,15 @@ def accuracy(true_labels, binary_preds):
     print(f'Binary Prediction: {p_string}')
     return np.sum(np.array(binary_labels) == np.array(binary_preds)) / len(binary_labels)
 
-def print_statistics(loss, accuracy, prediction_balance):
+def report(labels, preds):
+    if len(set(preds)) > 1:
+        return classification_report(labels, preds, target_names=['healthy', 'abnormal'])
+    return 'Only one class predicted'
+
+def print_statistics(loss, labels, preds):
     print('Loss:               ', loss)
-    print('Accuracy:           ', accuracy)
-    print('Prediction balance: ', prediction_balance)
+    print('Prediction balance: ', prediction_class_balance(preds))
+    print(report(labels, preds))
 
 # Test
 def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, feature_shape):
@@ -53,7 +59,6 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, feature_s
     summary_te = None
 
     # Iterate over whole test set
-    print()
     print('Test statistics')
     while (True):
         try:
@@ -64,15 +69,15 @@ def test_accuracy(sess, network, batch, iterator_te, iterator_te_next, feature_s
             loss_te, summary_te, preds = sess.run([network.summary_loss, network.summary, network.predictions],
                                             feed_dict={network.batch_features: parsed_batch_features,
                                                        network.batch_labels: parse_labels(binary_labels)})
-            losses.append(loss_te)
+            losses += [loss_te] * len(batch_labels)
             all_preds += preds.tolist()
             all_labels += batch_labels.tolist()
 
         except tf.errors.OutOfRangeError:
-
             sess.run(iterator_te.initializer)
             overall_accuracy = accuracy(all_labels, all_preds)
-            print_statistics(np.average(losses), overall_accuracy, np.average(prediction_class_balance(all_preds)))
-            print()
+            overall_loss = np.average(losses)
 
-            return summary_te, overall_accuracy, all_preds, binarise_labels(all_labels)
+            print_statistics(overall_loss, binarise_labels(all_labels), all_preds)
+
+            return summary_te, overall_accuracy, overall_loss, all_preds, binarise_labels(all_labels)

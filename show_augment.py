@@ -4,10 +4,12 @@ from pipeline import Pipeline
 from augmentation.augment_data import *
 from main_util import *
 
-train_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped_train_fold3.tfrecords'
-test_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped_test_fold3.tfrecords'
-record_shape=(42,116,140)
-feature_shape=(32,88,112)
+train_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/ti_n100_k4_large/axial_t2_only_cropped_train_fold0.tfrecords'
+test_data = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/ti_n100_k4_large/axial_t2_only_cropped_test_fold0.tfrecords'
+# record_shape=(42,116,140)
+# feature_shape=(32,88,112)
+record_shape=(30,96,96)
+feature_shape=(24,80,80)
 
 # Dataset pipeline
 decode_record = generate_decode_function(record_shape, 'axial_t2')
@@ -31,6 +33,7 @@ with tf.Session() as sess:
     aug_batch_images = augmentor.augment_batch(np.copy(batch_images))
 
     a = 0
+
     for vol, aug_vol in zip(batch_images, aug_batch_images):
         slice = int(aug_vol.shape[0] / 2)
         slice = 0

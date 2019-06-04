@@ -1,7 +1,8 @@
 FOLDS=$1
 
 BASE="/vol/gpudata/rh2515"
-RECORDS="MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped"
+RECORDS="MRI_Crohns/tfrecords/ti_n100_k4_large/axial_t2_only_cropped"
+# RECORDS="MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped"
 TIMESTAMP=`date +%Y-%m-%d_%H:%M:%S`
 
 
@@ -13,10 +14,13 @@ do
   Crohns_MRI \
   ${BASE}/${RECORDS}_train_fold${fold}.tfrecords \
   ${BASE}/${RECORDS}_test_fold${fold}.tfrecords \
-  -record_shape 42,116,140 \
-  -feature_shape 32,88,112 \
+  -record_shape 30,96,96 \
+  -feature_shape 24,80,80 \
   -f=${fold} \
   -bS=74 \
-  -lD=log_statistical_crop/${TIMESTAMP}/ \
-  -nB=800
+  -lD=log_ti_attention/${TIMESTAMP}/ \
+  -nB=400
 done
+
+# -record_shape 42,116,140 \
+# -feature_shape 32,88,112 \
