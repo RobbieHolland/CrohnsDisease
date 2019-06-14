@@ -4,13 +4,13 @@ from preprocess import Preprocessor
 from metadata import Metadata
 from tfrecords import TFRecordGenerator
 
-reference_size = [(112 + 16) + 12, (88 + 16) + 12, (32 + 4) + 6]
+reference_size = [(96 + 12) + 12, (88 + 12) + 12, (32 + 4) + 6]
 k = 4
 test_proportion = 0.25
 
 data_path = '/vol/gpudata/rh2515/MRI_Crohns'
 label_path = '/vol/gpudata/rh2515/MRI_Crohns/labels'
-record_out_path = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/statistical_crop'
+record_out_path = '/vol/gpudata/rh2515/MRI_Crohns/tfrecords/sc_localised'
 record_suffix = 'axial_t2_only_cropped'
 
 abnormal_cases = list(range(50))
@@ -23,6 +23,7 @@ for patient in reversed(metadata.patients):
 
 preprocessor = Preprocessor(constant_volume_size=reference_size)
 
+# metadata.patients = preprocessor.process(metadata.patients, ileum_crop=False, region_grow_crop=True, statistical_region_crop=True)
 metadata.patients = preprocessor.process(metadata.patients, ileum_crop=False, region_grow_crop=True, statistical_region_crop=True)
 
 record_generator = TFRecordGenerator(record_out_path, record_suffix)

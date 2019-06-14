@@ -19,6 +19,12 @@ def show_data(data, sl, name):
 def image_physical_center(image):
     return np.array(image.TransformContinuousIndexToPhysicalPoint(np.array(image.GetSize())/2.0))
 
+def physical_size(image):
+    return np.array(image.GetSpacing()) * np.array(image.GetSize())
+
+def prop_to_physical_pos(image, prop):
+    return image_physical_center(image) + prop * physical_size(image)
+
 class Preprocessor:
     def generate_reference_volume(self, patient):
         # Physical image size corresponds to the largest physical size in the training set, or any other arbitrary size.
@@ -79,23 +85,37 @@ class Preprocessor:
         proportion_box_size = np.array([])
         if ileum_crop:
             for patient in patients:
-                patient.set_images(self.crop_box_about_center(patient.axial_image, patient.ileum, np.array([80, 80, 112])))
+                print(patient.ileum)
+                ileum = [patient.ileum[1], patient.ileum[0], patient.ileum[2]]
+                patient.set_images(self.crop_box_about_center(patient.axial_image, ileum, np.array([80, 80, 112])))
         elif region_grow_crop:
             for patient in patients:
-                patient.set_images(self.region_grow_crop(patient))
+                cropped, ileum_prop = self.region_grow_crop(patient)
+                patient.set_images(cropped)
+                patient.ileum_prop = ileum_prop
             if statistical_region_crop:
                 # sag, cor, ax
                 normalised_ilea_mean = np.array([-0.195568, -0.1737442, -0.1135473])
-                normalised_ilea_box_size = np.array([0.2525025, 0.307483, 0.4804149]) * 1.2
+                normalised_ilea_box_size = (np.array([0.2525025, 0.307483, 0.4804149]))* 1.3
 
                 for patient in patients:
-                    ilea_mean = image_physical_center(patient.axial_image) + normalised_ilea_mean * patient.axial_image.GetSize()
-                    ilea_box_size = normalised_ilea_box_size * patient.axial_image.GetSize() * patient.axial_image.GetSpacing()
+                    print(patient.get_id())
+                    ilea_mean = prop_to_physical_pos(patient.axial_image, normalised_ilea_mean)
+                    ilea_true = prop_to_physical_pos(patient.axial_image, patient.ileum_prop/2.0)
+
+                    ilea_box_size = normalised_ilea_box_size * physical_size(patient.axial_image)
                     pixel_ilea_mean = patient.axial_image.TransformPhysicalPointToIndex(ilea_mean)
                     patient.set_images(self.crop_box_about_center(patient.axial_image, pixel_ilea_mean, ilea_box_size))
 
+                    new_pixel_ileum = patient.axial_image.TransformPhysicalPointToIndex(ilea_true)
+                    updated_pixel_ileum = np.array(patient.axial_image.GetSize()) / 2.0 + new_pixel_ileum - pixel_ilea_mean
+                    patient.ileum = updated_pixel_ileum
+                    patient.normalised_ileum = patient.ileum / np.array(patient.axial_image.GetSize()) - np.array([0.5] * 3)
+
         show_data([p.axial_image for p in patients], 13, 'cropped')
+        [print(patients[i].get_id()) for i in range(3)]
         [sitk.WriteImage(patients[i].axial_image, f'images/patient_{i}.nii', True) for i in range(3)]
+        print('mean size', np.mean([np.array(patient.axial_image.GetSize()) for patient in patients], axis=0))
 
         # Resample
         print(f'Resampling volumes to {self.constant_volume_size}')
@@ -153,10 +173,9 @@ class Preprocessor:
         ileum_prop = (np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size
         str_ileum_prop = [str(x) for x in ileum_prop]
         str_ileum_prop = ('\t').join(str_ileum_prop)
-        print(cropped.GetSize())
 
         # Metrics for ilea distribution
         print(f'{patient.get_id()}\t{patient.group}\t{patient.severity}\t{str_ileum_prop}')
         # print(f'{patient.get_id()}\t{(np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size).join('\t')}')
         # print(patient.ileum, cropped.TransformPhysicalPointToIndex(physical_ileum_coords))
-        return cropped
+        return cropped, ileum_prop

@@ -5,6 +5,7 @@ import random
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
+import numpy as np
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -51,9 +52,11 @@ class TFRecordGenerator:
         for i, patient in enumerate(patients):
             try:
                 image_array = sitk.GetArrayFromImage(patient.axial_image)
+                # Flip TI coords to be in Ax, Cor, Sag
                 feature = { 'train/label': _int64_feature(patient.severity),
                             'train/axial_t2': _float_feature(image_array.ravel()),
-                            'data/index': _int64_feature(patient.index)}
+                            'data/index': _int64_feature(patient.index),
+                            'train/ileum_coords': _float_feature(np.flip(patient.normalised_ileum).ravel())}
                 example = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example.SerializeToString())
             except Exception as e:

@@ -6,6 +6,7 @@ from sklearn.metrics import f1_score
 from main_util import *
 from augmentation.augment_data import *
 from pipeline import *
+from hard_soft_map import generate_batch_maps
 
 class Runner:
     def __init__(self, args, model):
@@ -29,22 +30,27 @@ class Runner:
 
         # Network parameters
         self.model = model
+        self.attention = args.attention
+        self.mixedAttention = args.mixedAttention
+        self.localisation = args.localisation
         self.feature_shape = args.feature_shape
         self.batch_size = args.batch_size
         self.test_size = min(self.batch_size, len(list(tf.python_io.tf_record_iterator(self.test_data))))
 
         # Hyperparameters
-        self.weight_decay = 0# 1e-4
+        self.weight_decay = 0#5e-5
         self.dropout_train_prob = 0.5
         starter_learning_rate = 5e-6
         self.global_step = tf.Variable(0, trainable=False)
         # N_steps_before_decay = 1# 8000 // self.batch_size
-        # lr_decay_rate = 0.99616971251
+        # end_learning_rate = 1e-6
+        # lr_decay_rate = (end_learning_rate / starter_learning_rate) ** (1 / self.num_batches)
+        # print(lr_decay_rate)
         # self.learning_rate = tf.train.exponential_decay(starter_learning_rate, self.global_step,
         #                                                 N_steps_before_decay, lr_decay_rate, staircase=True)
 
-        # boundaries = [200, 300]
-        # values = [starter_learning_rate, 0.5 * starter_learning_rate, 0.1 * starter_learning_rate]
+        # boundaries = [100]
+        # values = [starter_learning_rate, 0.5 * starter_learning_rate]
         # self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
         self.learning_rate = starter_learning_rate
 
@@ -81,7 +87,8 @@ class Runner:
         iterator_next, iterator_te_next = iterator.get_next(), iterator_te.get_next()
 
         # Initialise classification network
-        network = self.model(self.feature_shape, self.learning_rate, self.weight_decay, self.global_step)
+        network = self.model(self.feature_shape, self.learning_rate, self.weight_decay,
+                        self.global_step, self.attention, self.localisation, self.mixedAttention)
 
         # Initialise augmentation
         augmentor = Augmentor(self.feature_shape)
@@ -110,35 +117,45 @@ class Runner:
             for batch in range(self.num_batches):
                 # Evaluate performance on test set at intervals
                 if batch % self.test_evaluation_period == 0:
-                    summary_te, average_accuracy, overall_loss, preds, all_labels = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, self.feature_shape)
+                    summary_te, overall_loss, preds, all_labels = test_accuracy(sess, network, batch, iterator_te, iterator_te_next, augmentor, self.feature_shape)
                     summary_writer_te.add_summary(summary_te, int(batch))
-                    self.update_stats(batch, overall_loss, preds, all_labels)
-                    self.log_metrics(sess, batch, summary_writer_te, average_accuracy, f1_score(all_labels, preds))
+                    if not self.localisation:
+                        overall_accuracy = accuracy(all_labels, preds)
+                        self.update_stats(batch, overall_loss, preds, all_labels)
+                        self.log_metrics(sess, batch, summary_writer_te, overall_accuracy, f1_score(all_labels, preds))
+                        print_statistics(overall_loss, binarise_labels(all_labels), preds)
+                    print('Loss: ', overall_loss)
 
                 # Train the network
-                batch_images, batch_labels = sess.run(iterator_next)
-                aug_batch_images = augmentor.augment_batch(batch_images)
+                batch_images, batch_labels, batch_coords = sess.run(iterator_next)
+                aug_batch_images, batch_coords = augmentor.augment_batch(batch_images, batch_coords)
+                hard_soft_maps = generate_batch_maps(batch_coords, np.array(self.feature_shape) // 2)
+
                 binary_labels = binarise_labels(batch_labels)
 
                 _, loss, summary, binary_preds = sess.run([network.train_op, network.summary_loss, network.summary, network.predictions],
                                             feed_dict={network.batch_features: aug_batch_images,
                                                        network.batch_labels: parse_labels(binary_labels),
+                                                       network.batch_coords: batch_coords,
+                                                       network.batch_hard_soft_maps: hard_soft_maps,
                                                        network.dropout_prob: self.dropout_train_prob})
 
                 # Summaries and statistics
                 print('-------- Train epoch %d.%d --------' % (batch // self.test_evaluation_period, batch % self.test_evaluation_period))
                 summary_writer_tr.add_summary(summary, int(batch))
 
-                train_accuracies.append(accuracy(batch_labels, binary_preds))
-                running_accuracy = np.average(train_accuracies[-self.test_evaluation_period:])
-
-                self.log_metrics(sess, batch, summary_writer_tr, running_accuracy, f1_score(binary_labels, binary_preds))
-
-                print_statistics(loss, binary_labels, binary_preds)
+                if not self.localisation:
+                    train_accuracies.append(accuracy(batch_labels, binary_preds))
+                    running_accuracy = np.average(train_accuracies[-self.test_evaluation_period:])
+                    self.log_metrics(sess, batch, summary_writer_tr, running_accuracy, f1_score(binary_labels, binary_preds))
+                    print_statistics(loss, binary_labels, binary_preds)
+                else:
+                    print('Loss: ', loss)
 
             print('Training finished!')
-            self.write_log(f'Best loss (epoch {self.best["batch"]}): {round(self.best["loss"], 3)}')
-            self.write_log(f'with predictions: {self.best["preds"]}')
-            self.write_log(f'of labels:        {self.best["labels"]}')
-            self.write_log(self.best["report"])
-            self.write_log('')
+            if not self.localisation:
+                self.write_log(f'Best loss (epoch {self.best["batch"]}): {round(self.best["loss"], 3)}')
+                self.write_log(f'with predictions: {self.best["preds"]}')
+                self.write_log(f'of labels:        {self.best["labels"]}')
+                self.write_log(self.best["report"])
+                self.write_log('')

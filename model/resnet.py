@@ -51,34 +51,54 @@ class ResNet3D(Classifier):
         return net
 
     def classify(self, net):
-        net = tf.layers.flatten(net)
+        pooled = tf.layers.average_pooling3d(net, net.shape[2:], 1, padding='valid', data_format='channels_first')
+        net = tf.layers.flatten(pooled)
+        print('flattened', net.shape)
         net = self.dense_layer(net, 2, act_f=None, dropout=True)
-        print(net.shape)
         return net
 
-    def build_ti_net(self, input, attention=False):
-        in_pic = input[0][0][8]
-        tf.summary.image('original_slice', tf.expand_dims(tf.expand_dims(in_pic, axis=0), axis=3), max_outputs=10)
+    def weighted_prediction(self, global_logits, attention_logits_s1, attention_logits_s2):
+        global_weight = tf.Variable(0.5, trainable=True)
+        attention_weight_s1 = tf.Variable(0.25, trainable=True)
+        attention_weight_s2 = tf.Variable(0.25, trainable=True)
+        tf.summary.scalar('global_weight', global_weight)
+        tf.summary.scalar('attention_weight_s1', attention_weight_s1)
+        tf.summary.scalar('attention_weight_s2', attention_weight_s2)
+        attention_prediction = attention_weight_s1 * attention_logits_s1 + attention_weight_s2 * attention_logits_s2
+        return global_weight * global_logits + attention_prediction
 
-        conv1 = self.n_convs(input, [(64, 2), (64, 1), (64, 1), (64, 1), (128, 2), (128, 1), (128, 1), (128, 1)])
-        conv2 = self.n_convs(conv1, [(256, 2), (256, 1), (256, 1), (256, 1)])
-        pooled = tf.layers.average_pooling3d(conv2, conv2.shape[2:], 1, padding='valid', data_format='channels_first')
-        print(pooled.shape)
+    def max_prediction(self, global_logits, attention_logits_s1, attention_logits_s2):
+        return tf.reduce_max(tf.stack((global_logits, attention_logits_s1, attention_logits_s2), axis=0), axis=0)
 
-        logits = self.classify(pooled)
+    def build_ti_net(self, batch, attention=False, localisation=False, mixedAttention=False):
+        in_pic = batch[0][0][batch.shape[2] // 3]
+        tf.summary.image('original_slice', tf.expand_dims(tf.expand_dims(in_pic, axis=0), axis=3), max_outputs=1)
+
+        conv1 = self.n_convs(batch, [(64, 2), (64, 1), (64, 1), (64, 1)])
+        # cconv1 = self.n_convs(conv1, [(128, 2), (128, 1), (128, 1), (128, 1), (128, 1), (128, 1)])
+        conv2 = self.n_convs(conv1, [(128, 2), (128, 1), (128, 1), (128, 1)])
+        conv3 = self.n_convs(conv2, [(256, 2), (256, 1), (256, 1), (256, 1)])
+
+        logits = self.classify(conv3)
 
         if attention:
-            attention_layer = GridAttentionBlock(conv1.shape[1], conv2.shape[1])
-            compatability = attention_layer(conv1, conv2)
-            attention_logits = self.classify(compatability)
+            compatability_s1, mixed_loss_s1 = GridAttentionBlock(mixedAttention, self.batch_hard_soft_maps, conv3)(conv1)
+            compatability_s2, mixed_loss_s2 = GridAttentionBlock(mixedAttention, self.batch_hard_soft_maps, conv3)(conv2)
+            attention_logits_s1 = self.classify(compatability_s1)
+            attention_logits_s2 = self.classify(compatability_s2)
 
-            print(tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0).shape)
-            logits = tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0)
+            # logits = tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0)
+            logits = self.max_prediction(logits, attention_logits_s1, attention_logits_s2)
+            # logits = self.fc_predictions(logits, attention_logits_s1, attention_logits_s2)
 
-        return logits
+        if localisation:
+            flat = tf.layers.flatten(conv3)
+            logits = self.dense_layer(flat, 3, act_f=tf.tanh, dropout=False)
 
-    def __init__(self, input_shape, lr, weight_decay, global_step):
-        super().__init__(input_shape, lr, weight_decay, global_step)
+        return logits, mixed_loss_s1 + mixed_loss_s2
+
+    def __init__(self, input_shape, lr, weight_decay, global_step, attention, localisation, mixedAttention):
+        super().__init__(input_shape, lr, weight_decay, global_step, localisation, mixedAttention)
 
         def projection_shortcut(net, out_channels, filter_strides, padding='SAME'):
             return Conv3D(net, out_channels, 1, strides=filter_strides, padding=padding, data_format="channels_first")
@@ -92,6 +112,7 @@ class ResNet3D(Classifier):
 
         # net = make_parallel(self.build_long_net, 1, input=net)
         # net = make_parallel(self.build_ti_net, 1, input=net)
-        net = self.build_ti_net(net, attention=True)
+        net, mixed_loss = self.build_ti_net(net, attention=attention, localisation=localisation, mixedAttention=mixedAttention)
+        print(net.shape)
 
-        self.build(net)
+        self.build(net, mixed_loss)
