@@ -1,5 +1,6 @@
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
+
 import numpy as np
 import math
 
@@ -78,8 +79,10 @@ class Preprocessor:
         proportion_center = np.array([])
         proportion_box_size = np.array([])
         if ileum_crop:
+            print('Cropping to Ileum...')
             for patient in patients:
-                patient.set_images(self.crop_box_about_center(patient.axial_image, patient.ileum, np.array([80, 80, 112])))
+                parsed_ileum = [patient.ileum[1], patient.ileum[0], patient.ileum[2]]
+                patient.set_images(self.crop_box_about_center(patient.axial_image, parsed_ileum, np.array([80, 80, 112])))
         elif region_grow_crop:
             for patient in patients:
                 patient.set_images(self.region_grow_crop(patient))
@@ -94,6 +97,7 @@ class Preprocessor:
                     pixel_ilea_mean = patient.axial_image.TransformPhysicalPointToIndex(ilea_mean)
                     patient.set_images(self.crop_box_about_center(patient.axial_image, pixel_ilea_mean, ilea_box_size))
 
+        print('Showing data...')
         show_data([p.axial_image for p in patients], 13, 'cropped')
         [sitk.WriteImage(patients[i].axial_image, f'images/patient_{i}.nii', True) for i in range(3)]
 

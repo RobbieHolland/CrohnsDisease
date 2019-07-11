@@ -41,8 +41,9 @@ def augment(image, out_dims=None):
     # Initial crop to remove border artefacts
     # image = crop(image, (image.shape[0] - 6, image.shape[1] - 12, image.shape[2] - 12), mode='center')
     image = crop(image, (image.shape[0] - 4, image.shape[1] - 8, image.shape[2] - 8), mode='center')
-    image = flip(image, axis=2)
+
     image = random_rotate(image)
+    image = flip(image, axis=2)
     image = crop(image, out_dims, mode='random')
     image = add_gaussian_noise(image, sigma=0.005)
     # image = elastic_transform(image, alpha=[1, alpha, alpha],

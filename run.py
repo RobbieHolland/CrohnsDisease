@@ -7,7 +7,7 @@ from model.resnet import ResNet3D
 from main_util import generate_decode_function
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def parseArguments():
     # Create argument parser

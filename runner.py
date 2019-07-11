@@ -10,7 +10,7 @@ from pipeline import *
 class Runner:
     def __init__(self, args, model):
         # Paths
-        self.logdir = os.path.join('/vol/gpudata/rh2515/CrohnsDisease/', args.logdir)
+        self.logdir = os.path.join('/vol/bitbucket/rh2515/CrohnsDisease/', args.logdir)
         self.fold = args.fold
         if not os.path.exists(self.logdir):
             os.makedirs(self.logdir)

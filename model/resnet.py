@@ -60,20 +60,21 @@ class ResNet3D(Classifier):
         in_pic = input[0][0][8]
         tf.summary.image('original_slice', tf.expand_dims(tf.expand_dims(in_pic, axis=0), axis=3), max_outputs=10)
 
-        conv1 = self.n_convs(input, [(64, 2), (64, 1), (64, 1), (64, 1), (128, 2), (128, 1), (128, 1), (128, 1)])
-        conv2 = self.n_convs(conv1, [(256, 2), (256, 1), (256, 1), (256, 1)])
-        pooled = tf.layers.average_pooling3d(conv2, conv2.shape[2:], 1, padding='valid', data_format='channels_first')
+        conv1 = self.n_convs(input, [(64, 2), (64, 1), (64, 1), (64, 1)])
+        conv2 = self.n_convs(conv1, [(128, 2), (128, 1), (128, 1), (128, 1)])
+        conv3 = self.n_convs(conv2, [(256, 2), (256, 1), (256, 1), (256, 1)])
+        pooled = tf.layers.average_pooling3d(conv3, conv3.shape[2:], 1, padding='valid', data_format='channels_first')
         print(pooled.shape)
 
         logits = self.classify(pooled)
 
-        if attention:
-            attention_layer = GridAttentionBlock(conv1.shape[1], conv2.shape[1])
-            compatability = attention_layer(conv1, conv2)
-            attention_logits = self.classify(compatability)
-
-            print(tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0).shape)
-            logits = tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0)
+        # if attention:
+        #     attention_layer = GridAttentionBlock(conv1.shape[1], conv2.shape[1])
+        #     compatability = attention_layer(conv1, conv2)
+        #     attention_logits = self.classify(compatability)
+        #
+        #     print(tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0).shape)
+        #     logits = tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0)
 
         return logits
 
