@@ -29,6 +29,7 @@ class Runner:
 
         # Network parameters
         self.model = model
+        self.attention = args.attention
         self.feature_shape = args.feature_shape
         self.batch_size = args.batch_size
         self.test_size = min(self.batch_size, len(list(tf.python_io.tf_record_iterator(self.test_data))))
@@ -81,7 +82,7 @@ class Runner:
         iterator_next, iterator_te_next = iterator.get_next(), iterator_te.get_next()
 
         # Initialise classification network
-        network = self.model(self.feature_shape, self.learning_rate, self.weight_decay, self.global_step)
+        network = self.model(self.feature_shape, self.learning_rate, self.weight_decay, self.global_step, self.attention)
 
         # Initialise augmentation
         augmentor = Augmentor(self.feature_shape)

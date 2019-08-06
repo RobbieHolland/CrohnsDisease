@@ -2,7 +2,7 @@ FOLDS=$1
 
 BASE="/vol/bitbucket/rh2515"
 RECORDS="MRI_Crohns/tfrecords/ti_imb/axial_t2_only"
-# RECORDS="MRI_Crohns/tfrecords/statistical_crop/axial_t2_only_cropped"
+# RECORDS="MRI_Crohns/tfrecords/ti_imb_generic/axial_t2_only"
 TIMESTAMP=`date +%Y-%m-%d_%H:%M:%S`
 
 
@@ -16,11 +16,9 @@ do
   ${BASE}/${RECORDS}_test_fold${fold}.tfrecords \
   -record_shape 37,99,99 \
   -feature_shape 31,87,87 \
+  -at=1 \
   -f=${fold} \
-  -bS=64 \
-  -lD=log_ti/${TIMESTAMP}/ \
-  -nB=900
+  -bS=32 \
+  -lD=log_attention/${TIMESTAMP}/ \
+  -nB=1200
 done
-
-# -record_shape 42,116,140 \
-# -feature_shape 32,88,112 \

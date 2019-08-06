@@ -14,23 +14,25 @@ test_proportion = 0.25
 
 data_path = '/vol/bitbucket/rh2515/MRI_Crohns'
 label_path = '/vol/bitbucket/rh2515/MRI_Crohns/labels'
-record_out_path = '/vol/bitbucket/rh2515/MRI_Crohns/tfrecords/ti_imb'
+record_out_path = '/vol/bitbucket/rh2515/MRI_Crohns/tfrecords/ti_imb_generic'
 record_suffix = 'axial_t2_only'
 
 abnormal_cases = list(range(70))
 healthy_cases = list(range(100))
 metadata = Metadata(data_path, label_path, abnormal_cases, healthy_cases, dataset_tag='')
+print(np.unique([p.severity for p in metadata.patients], return_counts=True))
+print(np.mean([p.index for p in metadata.patients if p.severity == 3]))
 # metadata = Metadata(data_path, label_path, abnormal_cases, healthy_cases, dataset_tag=' cropped')
 
 print('Loading images...')
 for patient in metadata.patients:
     print(f'Loading patient {patient.get_id()}')
     patient.load_image_data()
-
+#
 preprocessor = Preprocessor(constant_volume_size=reference_size)
-
-metadata.patients = preprocessor.process(metadata.patients, ileum_crop=True, region_grow_crop=False, statistical_region_crop=False)
-
+#
+metadata.patients = preprocessor.process(metadata.patients, ileum_crop=False, region_grow_crop=True, statistical_region_crop=True)
+#
 record_generator = TFRecordGenerator(record_out_path, record_suffix)
 # record_generator.generate_train_test(test_proportion, metadata.patients)
 record_generator.generate_cross_folds(k, metadata.patients)

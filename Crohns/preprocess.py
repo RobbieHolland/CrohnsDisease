@@ -88,8 +88,8 @@ class Preprocessor:
                 patient.set_images(self.region_grow_crop(patient))
             if statistical_region_crop:
                 # sag, cor, ax
-                normalised_ilea_mean = np.array([-0.195568, -0.1737442, -0.1135473])
-                normalised_ilea_box_size = np.array([0.2525025, 0.307483, 0.4804149]) * 1.2
+                normalised_ilea_mean = np.array([-0.192, -0.1706, -0.1114])
+                normalised_ilea_box_size = np.array([0.289, 0.307483, 0.4804149]) * 1.1
 
                 for patient in patients:
                     ilea_mean = image_physical_center(patient.axial_image) + normalised_ilea_mean * patient.axial_image.GetSize()
@@ -157,7 +157,6 @@ class Preprocessor:
         ileum_prop = (np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size
         str_ileum_prop = [str(x) for x in ileum_prop]
         str_ileum_prop = ('\t').join(str_ileum_prop)
-        print(cropped.GetSize())
 
         # Metrics for ilea distribution
         print(f'{patient.get_id()}\t{patient.group}\t{patient.severity}\t{str_ileum_prop}')
