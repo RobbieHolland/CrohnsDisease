@@ -9,14 +9,10 @@ import multiprocessing as mp
 from multiprocessing import Pool
 import functools
 import random
-# from dltk.io.preprocessing import *
 
+# Parameters
 angle_std = 4
 alpha, sigma = 6e3, 50
-mx_disp_prop = 0.04
-
-def random_displacement(image, lb, up):
-    return [round(np.random.uniform(-mx_disp_prop, mx_disp_prop) * d) for d in image.shape]
 
 def crop(image, desired_size, mode='center'):
     diff = image.shape - np.array(desired_size)
@@ -29,17 +25,12 @@ def crop(image, desired_size, mode='center'):
     res = [-r if r != 0 else None for r in res]
     return image[ds[0]:res[0], ds[1]:res[1], ds[2]:res[2]]
 
-def random_translate(image):
-    displacements = random_displacement(image, -mx_disp_prop, mx_disp_prop)
-    return scipy.ndimage.shift(image, displacements, mode='nearest')
-
 def random_rotate(image):
     angle = np.random.normal(loc=0, scale=angle_std)
     return scipy.ndimage.rotate(image, angle, axes=(1, 2), reshape=False, order=5, mode='nearest')
 
 def augment(image, out_dims=None):
     # Initial crop to remove border artefacts
-    # image = crop(image, (image.shape[0] - 6, image.shape[1] - 12, image.shape[2] - 12), mode='center')
     image = crop(image, (image.shape[0] - 4, image.shape[1] - 8, image.shape[2] - 8), mode='center')
 
     image = random_rotate(image)
@@ -59,9 +50,6 @@ def process(image, out_dims=None):
 
 class Augmentor:
     def __init__(self, out_dims):
-        self.angle_std = 4
-        self.alpha, self.sigma = 5e3, 35
-        self.mx_disp_prop = 0.04
         self.mappable_augment = functools.partial(augment, out_dims=out_dims)
         self.mappable_process = functools.partial(process, out_dims=out_dims)
 
