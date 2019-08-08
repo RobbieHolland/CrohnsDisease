@@ -1,10 +1,9 @@
 import argparse
 import tensorflow as tf
 
-from runner import Runner
-from model.vgg_16 import VGG16
+from train import Trainer
 from model.resnet import ResNet3D
-from main_util import generate_decode_function
+from train_util import generate_decode_function
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -55,13 +54,13 @@ if __name__ == '__main__':
     args.record_shape = tuple([int(x) for x in args.record_shape.split(',')])
 
     task = args.__dict__['crohns_or_polyps']
-    if task == 'Polyps_CT':
-        decode_record = generate_decode_function(args.record_shape, 'image')
-        model = VGG
-    elif task == 'Crohns_MRI':
+    # if task == 'Polyps_CT':
+    #     decode_record = generate_decode_function(args.record_shape, 'image')
+    #     model = VGG
+    if task == 'Crohns_MRI':
         decode_record = generate_decode_function(args.record_shape, 'axial_t2')
         model = ResNet3D
     args.__dict__['decode_record'] = decode_record
 
-    runner = Runner(args, model)
-    runner.train()
+    trainer = Trainer(args, model)
+    trainer.train()

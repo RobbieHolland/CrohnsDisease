@@ -26,7 +26,6 @@ class Preprocessor:
         reference_physical_size = np.zeros(self.dimension)
 
         img = patient.axial_image
-        # reference_physical_size[:] = [(sz-1)*spc if sz*spc>mx  else mx for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
         reference_physical_size[:] = [(sz-1)*spc for sz,spc,mx in zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
 
         # Create the reference image with a zero origin, identity direction cosine matrix and dimension
@@ -38,12 +37,6 @@ class Preprocessor:
         reference_image.SetOrigin(reference_origin)
         reference_image.SetSpacing(reference_spacing)
         reference_image.SetDirection(reference_direction)
-
-        # Always use the TransformContinuousIndexToPhysicalPoint to compute an indexed point's physical coordinates as
-        # this takes into account size, spacing and direction cosines. For the vast majority of images the direction
-        # cosines are the identity matrix, but when this isn't the case simply multiplying the central index by the
-        # spacing will not yield the correct coordinates resulting in a long debugging session.
-        reference_center = np.array(reference_image.TransformContinuousIndexToPhysicalPoint(np.array(reference_image.GetSize())/2.0))
 
         return reference_image
 
@@ -68,14 +61,7 @@ class Preprocessor:
         print('Preprocessing...')
         self.dimension = patients[0].axial_image.GetDimension()
 
-        # Crop
-        # print('Cropping volumes')
-        # for patient in patients:
-        #     print(f'Cropping {patient.get_id()} \r', end='')
-        #     patient.set_images(axial_image=self.threshold_based_crop(patient.axial_image))
-        # show_data([p.axial_image for p in patients], 30)
-
-        # Ileum crop
+        # Patient specific cropping to Terminal Ileum (semi-automatic preprocessing)
         proportion_center = np.array([])
         proportion_box_size = np.array([])
         if ileum_crop:
@@ -83,11 +69,15 @@ class Preprocessor:
             for patient in patients:
                 parsed_ileum = [patient.ileum[1], patient.ileum[0], patient.ileum[2]]
                 patient.set_images(self.crop_box_about_center(patient.axial_image, parsed_ileum, np.array([80, 80, 112])))
+
+        # Population specific cropping (fully-automatic preprocessing)
         elif region_grow_crop:
+            # First crop to patient (also to determine rough patient dimensions)
             for patient in patients:
                 patient.set_images(self.region_grow_crop(patient))
+            # Then crop to proportional generic region guaranteed to contain Terminal Ileum
             if statistical_region_crop:
-                # sag, cor, ax
+                # Proportional generic region derived externally (format: [sag, cor, ax])
                 normalised_ilea_mean = np.array([-0.192, -0.1706, -0.1114])
                 normalised_ilea_box_size = np.array([0.289, 0.307483, 0.4804149]) * 1.1
 

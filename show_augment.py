@@ -26,9 +26,6 @@ with tf.Session() as sess:
     sess.run(iterator_te.initializer)
 
     batch_images, batch_labels = sess.run([features, labels])
-    # batch_labels = sess.run(labels)
-    # print(batch_images.shape)
-    # print(binarise_labels( batch_labels))
 
     aug_batch_images = augmentor.augment_batch(np.copy(batch_images))
 

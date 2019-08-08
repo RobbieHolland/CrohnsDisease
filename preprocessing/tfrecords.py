@@ -10,7 +10,6 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 def _float_feature(value):
-    # Since this will be used to convert an np.array we don't use []
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 def _bytes_feature(value):
@@ -36,8 +35,6 @@ class TFRecordGenerator:
         with open(os.path.join(self.out_path, 'METADATA'), 'a') as levels:
             levels.write(f'{line}\n')
 
-    # Features: List of Sitk images
-    # Labels: Corresponding list of labels
     def _generate_tfrecords(self, patients, set='train', fold=''):
         writer = tf.python_io.TFRecordWriter(os.path.join(self.out_path, tfrecord_name(f'{set}_{fold}', self.suffix)))
 

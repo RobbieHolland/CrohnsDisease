@@ -3,11 +3,11 @@ import os
 import numpy as np
 from datetime import datetime
 from sklearn.metrics import f1_score
-from main_util import *
+from train_util import *
 from augmentation.augment_data import *
 from pipeline import *
 
-class Runner:
+class Trainer:
     def __init__(self, args, model):
         # Paths
         self.logdir = os.path.join('/vol/bitbucket/rh2515/CrohnsDisease/', args.logdir)
@@ -39,14 +39,6 @@ class Runner:
         self.dropout_train_prob = 0.5
         starter_learning_rate = 5e-6
         self.global_step = tf.Variable(0, trainable=False)
-        # N_steps_before_decay = 1# 8000 // self.batch_size
-        # lr_decay_rate = 0.99616971251
-        # self.learning_rate = tf.train.exponential_decay(starter_learning_rate, self.global_step,
-        #                                                 N_steps_before_decay, lr_decay_rate, staircase=True)
-
-        # boundaries = [200, 300]
-        # values = [starter_learning_rate, 0.5 * starter_learning_rate, 0.1 * starter_learning_rate]
-        # self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
         self.learning_rate = starter_learning_rate
 
         # Logging

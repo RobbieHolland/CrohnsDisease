@@ -3,8 +3,6 @@ from model.classifier import Classifier
 from model.attention_layer import GridAttentionBlock
 Conv3D = tf.layers.conv3d
 
-# https://github.com/tensorflow/models/blob/master/official/resnet/resnet_model.py#522
-
 def make_parallel(fn, num_gpus, **kwargs):
     in_splits = {}
     for k, v in kwargs.items():
@@ -19,6 +17,7 @@ def make_parallel(fn, num_gpus, **kwargs):
     return tf.concat(out_split, axis=0)
 
 class ResNet3D(Classifier):
+    # ResNet block with mirror padding
     def block(self, net, out_channels, shortcut_f, filter_dims=3, filter_strides=2,
                   padding='VALID', act_f=tf.nn.relu):
         shortcut = shortcut_f(net, out_channels, filter_strides)
@@ -49,30 +48,32 @@ class ResNet3D(Classifier):
             print(net.shape)
         return net
 
+    # Classification module
     def classify(self, net):
         net = tf.layers.flatten(net)
         net = self.dense_layer(net, 2, act_f=None, dropout=True)
-        print(net.shape)
+        print('Classification output shape', net.shape)
         return net
 
     def build_ti_net(self, input, attention=False):
         in_pic = input[0][0][input.shape[2] // 3]
         tf.summary.image('original_slice', tf.expand_dims(tf.expand_dims(in_pic, axis=0), axis=3), max_outputs=10)
 
+        # 3D ResNet specification
         conv1 = self.n_convs(input, [(64, 2), (64, 1), (64, 1)])
         conv2 = self.n_convs(conv1, [(128, 2), (128, 1), (128, 1)])
         conv3 = self.n_convs(conv2, [(256, 2), (256, 1), (256, 1)])
         pooled = tf.layers.average_pooling3d(conv3, conv3.shape[2:], 1, padding='valid', data_format='channels_first')
-        print(pooled.shape)
+        print('Pooled shape', pooled.shape)
 
         logits = self.classify(pooled)
 
         if attention:
-            attention_layer = GridAttentionBlock(conv1.shape[1], conv2.shape[1])
+            attention_layer = GridAttentionBlock(conv1.shape[1])
             compatability = attention_layer(conv1, conv3)
             attention_logits = self.classify(compatability)
 
-            print(tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0).shape)
+            # Weight prediction of original network with prediction from attention layer
             logits = tf.reduce_mean(tf.stack([logits, attention_logits], 0), 0)
 
         return logits
@@ -85,10 +86,9 @@ class ResNet3D(Classifier):
         self.p_s = projection_shortcut
 
         self.dropout_prob = tf.placeholder_with_default(1.0, shape=())
-        print('shape', self.batch_features.shape)
+        print('Batch features', self.batch_features.shape)
 
         net = tf.expand_dims(self.batch_features, axis=1)
-        print(net.shape)
 
         # net = make_parallel(self.build_long_net, 1, input=net)
         # net = make_parallel(self.build_ti_net, 1, input=net)

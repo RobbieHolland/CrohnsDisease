@@ -6,7 +6,7 @@ RECORDS="MRI_Crohns/tfrecords/ti_imb/axial_t2_only"
 TIMESTAMP=`date +%Y-%m-%d_%H:%M:%S`
 
 
-echo "Running ${#@}-fold cross validation"
+echo "Running ${#@} fold(s)"
 
 for fold in ${@}
 do
