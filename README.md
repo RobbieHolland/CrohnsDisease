@@ -12,23 +12,23 @@ Brief explanation of important files
 ### Training
 <tt>/run_crohns.sh</tt> - Run config specifying training and model parameters (root of execution)
 
-<tt>/run.py</tt> - Parses config options and builds TF Record decode function
+<tt>/run.py</tt> - Parses config options and builds TF Record decode function, starts training procedure
 
 <tt>/pipeline.py</tt> - Builds TF Record load pipeline using decode function
 
-<tt>/runner.py</tt> - Constructs and iteratively trains TF network, continually loading TF Record data through pipeline
+<tt>/trainer.py</tt> - Constructs and iteratively trains TF network, continually loading TF Record data through pipeline
 
-<tt>/model/resenet.py</tt> - Specification for 3D Resnet
+<tt>/model/resnet.py</tt> - Specification for 3D Resnet
 
 <tt>/model/attention.py</tt> - Specification of [soft attention mechanism](https://arxiv.org/abs/1804.05338)
 
 ### Data pre-processing
-Files under <tt>/Crohns/</tt> generate the TF Records that are consumed in training
+Files under <tt>/preprocessing/</tt> generate the TF Records that are consumed in training
 
-<tt>/Crohns/metadata.py</tt> Loads labels and MRI metadata into memory
+<tt>/preprocessing/metadata.py</tt> Loads labels and MRI metadata into memory
 
-<tt>/Crohns/preprocess.py</tt> Crops and rescales MRI volumes
+<tt>/preprocessing/preprocess.py</tt> Crops and rescales MRI volumes
 
-<tt>/Crohns/tfrecords.py</tt> Generates a series of training and test TF Records for cross-fold evaluation (introducing duplication)
+<tt>/preprocessing/tfrecords.py</tt> Generates a series of training and test TF Records for cross-fold evaluation (introducing duplication)
 
-<tt>/Crohns/generate_tfrecords.py</tt> Configures and executes the generation process (i.e. how many cross folds)
+<tt>/preprocessing/generate_tfrecords.py</tt> Configures and executes the generation process (i.e. how many cross folds)
