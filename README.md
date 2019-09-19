@@ -2,6 +2,10 @@
 # CrohnsDisease
 Final year Masters project at Imperial College on tackling Crohn's Disease
 
+arXiv: https://arxiv.org/abs/1909.00276
+
+Paper to be presented at MICCAI 2019, Shenzhen
+
 In this work we establish a baseline for binary prediction of terminal ileal Crohn's disease in abnormal and healthy MRI volumes, using deep learning
 
 To this end we use a small 3D ResNet with added soft attention layers
