@@ -12,13 +12,16 @@ for fold in ${@}
 do
   python3 run.py \
   Crohns_MRI \
-  ${BASE}/${RECORDS}_train_fold${fold}.tfrecords \
-  ${BASE}/${RECORDS}_test_fold${fold}.tfrecords \
+  ${BASE} \
+  ${RECORDS}_train_fold${fold}.tfrecords \
+  ${RECORDS}_test_fold${fold}.tfrecords \
   -record_shape 37,99,99 \
   -feature_shape 31,87,87 \
   -at=1 \
   -f=${fold} \
   -bS=32 \
-  -lD=log_attention/${TIMESTAMP}/ \
-  -nB=1200
+  -lD=CrohnsDisease/log_attention/${TIMESTAMP}/ \
+  -nB=1200 \
+  -mode="train" \
+  -mP="CrohnsDisease/trained_models/model_save"
 done

@@ -78,7 +78,7 @@ class ResNet3D(Classifier):
 
         return logits
 
-    def __init__(self, input_shape, lr, weight_decay, global_step, attention=False):
+    def __init__(self, input_shape, global_step, lr=5e-6, weight_decay=0, attention=False):
         super().__init__(input_shape, lr, weight_decay, global_step)
 
         def projection_shortcut(net, out_channels, filter_strides, padding='VALID'):
