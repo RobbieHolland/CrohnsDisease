@@ -99,23 +99,19 @@ class Trainer:
         config.allow_soft_placement = True
         with tf.Session(config=config) as sess:
             # Initialise variables
-            if self.args.mode == 'train':
-                tf.global_variables_initializer().run()
-            elif self.args.mode == 'test':
-                print('Loading model from', tf.train.latest_checkpoint('/vol/bitbucket/rh2515/CrohnsDisease/trained_models/'))
-                saver.restore(sess, tf.train.latest_checkpoint('/vol/bitbucket/rh2515/CrohnsDisease/trained_models/'))
+            tf.global_variables_initializer().run()
             sess.run(iterator.initializer)
             sess.run(iterator_te.initializer)
 
             # Summary writers
             summary_writer_tr = self.create_summary('train', sess.graph)
             summary_writer_te = self.create_summary('test', sess.graph)
-            # saver = tf.train.Saver()
+            saver = tf.train.Saver()
 
             train_accuracies = []
             for batch in range(self.num_batches):
                 # Evaluate performance on test set at intervals
-                if batch % self.test_evaluation_period == 1:
+                if batch % self.test_evaluation_period == 0:
                     summary_te, average_accuracy, overall_loss, preds, all_labels = test_accuracy(sess, network, iterator_te, iterator_te_next, self.feature_shape)
                     summary_writer_te.add_summary(summary_te, int(batch))
                     self.update_stats(batch, overall_loss, preds, all_labels)

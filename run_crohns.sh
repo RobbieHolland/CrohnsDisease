@@ -22,6 +22,6 @@ do
   -bS=32 \
   -lD=CrohnsDisease/log_attention/${TIMESTAMP}/ \
   -nB=1200 \
-  -mode="train" \
+  -mode="test" \
   -mP="CrohnsDisease/trained_models/model_save"
 done

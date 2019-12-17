@@ -4,10 +4,10 @@ import tensorflow as tf
 from train import Trainer
 from model.resnet import ResNet3D
 from train_util import generate_decode_function
-# from infer import Infer
+from infer import Infer
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def parseArguments():
     # Create argument parser
@@ -66,9 +66,12 @@ if __name__ == '__main__':
         model = ResNet3D
     args.__dict__['decode_record'] = decode_record
 
-    # if args.mode == 'train':
-    trainer = Trainer(args, model)
-    trainer.train()
-    # elif args.mode == 'test':
-    #     infer = Infer(args, model)
-    #     infer.infer()
+    if args.mode == 'train':
+        trainer = Trainer(args, model)
+        trainer.train()
+    elif args.mode == 'test':
+        infer = Infer(args, model)
+
+        axial_path = '/vol/bitbucket/rh2515/MRI_Crohns/A/A36 Axial T2.nii'
+        coords = [198, 134, 31]
+        infer.infer(axial_path, coords, args.record_shape, args.feature_shape)
