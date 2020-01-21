@@ -71,6 +71,7 @@ if __name__ == '__main__':
         trainer.train()
     elif args.mode == 'test':
         infer = Infer(args, model)
+        infer.test(os.path.join(args.base, args.test_datapath))
 
         axial_path = '/vol/bitbucket/rh2515/MRI_Crohns/A/A36 Axial T2.nii'
         coords = [198, 134, 31]

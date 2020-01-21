@@ -16,7 +16,6 @@ class Trainer:
         if not os.path.exists(self.logdir):
             os.makedirs(self.logdir)
         self.model_save_path = os.path.join(args.base, args.model_path)
-        self.model_save_period = 10
 
         self.train_data = os.path.join(args.base, args.train_datapath)
         self.test_data = os.path.join(args.base, args.test_datapath)
@@ -114,6 +113,11 @@ class Trainer:
                 if batch % self.test_evaluation_period == 0:
                     summary_te, average_accuracy, overall_loss, preds, all_labels = test_accuracy(sess, network, iterator_te, iterator_te_next, self.feature_shape)
                     summary_writer_te.add_summary(summary_te, int(batch))
+
+                    if overall_loss < self.best['loss']:
+                        saver.save(sess, self.model_save_path)
+                        print('===================================> Model saved!')
+
                     self.update_stats(batch, overall_loss, preds, all_labels)
                     self.log_metrics(sess, batch, summary_writer_te, average_accuracy, f1_score(all_labels, preds))
 
@@ -137,11 +141,6 @@ class Trainer:
                 self.log_metrics(sess, batch, summary_writer_tr, running_accuracy, f1_score(binary_labels, binary_preds))
 
                 print_statistics(loss, binary_labels, binary_preds)
-
-                # Save model
-                if batch % self.model_save_period == 0:
-                    saver.save(sess, self.model_save_path)
-                    print('Model saved!')
 
             print('Training finished!')
             self.write_log(f'Best loss (epoch {self.best["batch"]}): {round(self.best["loss"], 3)}')

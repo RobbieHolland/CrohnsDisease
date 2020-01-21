@@ -19,9 +19,9 @@ do
   -feature_shape 31,87,87 \
   -at=1 \
   -f=${fold} \
-  -bS=32 \
+  -bS=64 \
   -lD=CrohnsDisease/log_attention/${TIMESTAMP}/ \
   -nB=1200 \
   -mode="test" \
-  -mP="CrohnsDisease/trained_models/model_save"
+  -mP="CrohnsDisease/trained_models/best_model/fold${fold}"
 done
